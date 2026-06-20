@@ -1,0 +1,198 @@
+{
+  "project": "alevel-assistant",
+  "workflow": "hybrid_orchestrator",
+  "version": 1,
+  "tasks": [
+    {
+      "id": "AW-001",
+      "title": "Extract question-level mark scheme context for matched past papers",
+      "status": "completed",
+      "priority": "P0",
+      "owner": "orchestrator",
+      "files": [
+        "api/paper_resolver.py",
+        "questionbank/",
+        "parser/",
+        "pipeline/"
+      ],
+      "acceptance": [
+        "Given a matched paper code and question numbers, the system can locate the local QP/MS files.",
+        "The grading prompt receives concise question-level mark scheme context, not only a PDF path.",
+        "If mark scheme extraction is unavailable or low-confidence, the route falls back to open_ai_grading with a visible reason.",
+        "Focused backend tests cover exact match, missing MS, and fallback paths."
+      ],
+      "events": [
+        {
+          "at": "2026-06-19T17:21:59+00:00",
+          "agent": "orchestrator",
+          "status": "in_progress",
+          "note": "Starting question-level mark scheme context integration."
+        },
+        {
+          "at": "2026-06-19T17:41:43+00:00",
+          "agent": "orchestrator",
+          "status": "completed",
+          "note": "Implemented question-level mark scheme context for matched Past Papers. Evidence: 15 focused tests passed, py_compile passed, spec reviewer PASS, code-quality reviewer APPROVED."
+        }
+      ],
+      "updated_at": "2026-06-19T17:41:43+00:00"
+    },
+    {
+      "id": "AW-002",
+      "title": "Fixture-backed agent_step replay for loading-state UI",
+      "status": "completed",
+      "priority": "P1",
+      "owner": "orchestrator",
+      "files": [
+        "frontend/src/components/ThinkingPanel.tsx",
+        "frontend/src/api/client.ts",
+        "test/"
+      ],
+      "acceptance": [
+        "A fixture or unit-level replay exercises agent_step events with past-paper fields.",
+        "Student-facing UI displays learning labels, not raw think/act/observe/decide/final labels.",
+        "Unknown fields do not crash the progress panel.",
+        "Evidence includes a browser screenshot or equivalent DOM proof."
+      ],
+      "events": [
+        {
+          "at": "2026-06-19T17:47:43+00:00",
+          "agent": "orchestrator",
+          "status": "in_progress",
+          "note": "Starting fixture-backed agent_step replay for loading-state UI."
+        },
+        {
+          "at": "2026-06-20T02:10:17+00:00",
+          "agent": "orchestrator",
+          "status": "completed",
+          "note": "Implemented fixture-backed agent_step replay for loading UI. Evidence: npm run test:agent-steps passed, npx tsc -b passed, touched-file eslint passed, Chrome screenshot /private/tmp/alevel-agent-step-replay.png, DOM proof /private/tmp/alevel-agent-step-replay-dom.html."
+        },
+        {
+          "at": "2026-06-20T03:11:02+00:00",
+          "agent": "orchestrator",
+          "status": "in_progress",
+          "note": "Continuing AW-002 polish: make agent trace labels less technical and align loading UI language with upload-page style."
+        },
+        {
+          "at": "2026-06-20T03:14:58+00:00",
+          "agent": "orchestrator",
+          "status": "completed",
+          "note": "Continued AW-002 polish: translated agent/tool/badge/fallback labels into student-facing learning language and aligned replay copy with the upload-page visual style. Evidence: npm run test:agent-steps passed, npx tsc -b passed, touched-file eslint passed, npm run test:visual for /__agent-step-replay passed with horizontalOverflow=false, npm run build passed."
+        }
+      ],
+      "updated_at": "2026-06-20T03:14:58+00:00"
+    },
+    {
+      "id": "AW-003",
+      "title": "Add repeatable visual acceptance runner for desktop and mobile",
+      "status": "completed",
+      "priority": "P1",
+      "owner": "orchestrator",
+      "files": [
+        "scripts/",
+        "spec/acceptance.md",
+        "frontend/"
+      ],
+      "acceptance": [
+        "A local command captures desktop and mobile screenshots for the grading first screen.",
+        "The command reports viewport width, scrollWidth, and whether horizontal overflow exists.",
+        "Screenshots are written outside tracked source, such as /private/tmp.",
+        "The workflow is documented in acceptance.md or a linked spec."
+      ],
+      "events": [
+        {
+          "at": "2026-06-20T02:10:33+00:00",
+          "agent": "orchestrator",
+          "status": "in_progress",
+          "note": "Starting repeatable visual acceptance runner for desktop and mobile screenshots."
+        },
+        {
+          "at": "2026-06-20T02:17:44+00:00",
+          "agent": "orchestrator",
+          "status": "completed",
+          "note": "Added repeatable visual acceptance runner and documented it. Evidence: npm run test:visual produced desktop/mobile screenshots and report in /private/tmp/alevel-visual-acceptance-aw003-final with horizontalOverflow=false; node --check passed; npm run build passed."
+        },
+        {
+          "at": "2026-06-20T03:16:30+00:00",
+          "agent": "orchestrator",
+          "status": "in_progress",
+          "note": "Continuing AW-003: make visual runner enforce first-screen content checks for the grading home page while keeping custom replay paths usable."
+        },
+        {
+          "at": "2026-06-20T03:18:26+00:00",
+          "agent": "orchestrator",
+          "status": "completed",
+          "note": "Continued AW-003: visual runner now enforces homepage content checks by default for upload and navigation visibility, reports checks/failures per viewport, and keeps custom replay paths usable. Evidence: node --check passed; npm run test:visual homepage passed with expectUpload=true expectNav=true and horizontalOverflow=false; npm run test:visual /__agent-step-replay passed with custom checks disabled."
+        }
+      ],
+      "updated_at": "2026-06-20T03:18:26+00:00"
+    },
+    {
+      "id": "AW-004",
+      "title": "Design Large PDF Mode as a backend/frontend implementation plan",
+      "status": "completed",
+      "priority": "P2",
+      "owner": "orchestrator",
+      "files": [
+        "spec/product-ui-agent-spec.md",
+        "spec/long-running-agent-workflow.md",
+        "api/routes.py",
+        "frontend/src/components/UploadForm.tsx"
+      ],
+      "acceptance": [
+        "Plan separates PDF intake, page thumbnailing, paper recognition, question selection, and selective processing.",
+        "Plan preserves the current 16-image limit for non-Large-PDF paths.",
+        "Plan includes testable milestones and rollback points."
+      ],
+      "events": [
+        {
+          "at": "2026-06-20T02:18:18+00:00",
+          "agent": "orchestrator",
+          "status": "in_progress",
+          "note": "Starting Large PDF Mode implementation plan: separate PDF intake, thumbnails, paper recognition, question selection, selective processing, milestones, and rollback points."
+        },
+        {
+          "at": "2026-06-20T02:20:57+00:00",
+          "agent": "orchestrator",
+          "status": "completed",
+          "note": "Designed Large PDF Mode plan in spec/large-pdf-mode.md and linked it from product, acceptance, and workflow specs. Plan separates PDF intake, thumbnails, paper recognition, question selection, selective processing, preserves 16-page normal path limit, and includes milestones plus rollback points. Evidence: placeholder scan clean for new plan, workflow status readable, py_compile agent_workflow helper passed, visual runner node --check passed."
+        }
+      ],
+      "updated_at": "2026-06-20T02:20:57+00:00"
+    },
+    {
+      "id": "AW-005",
+      "title": "Implement Large PDF Mode Milestone 1 backend prepare session",
+      "status": "completed",
+      "priority": "P1",
+      "owner": "orchestrator",
+      "files": [
+        "api/large_pdf_cache.py",
+        "api/large_pdf.py",
+        "api/routes.py",
+        "test/test_large_pdf_mode.py"
+      ],
+      "acceptance": [
+        "Backend can accept one PDF through a dedicated Large PDF prepare route.",
+        "The prepare route returns a pdf_id, page_count, preview page thumbnails, and public paper-resolution metadata.",
+        "The PDF session cache stores local file paths internally without returning them publicly.",
+        "Existing normal image upload limits remain unchanged."
+      ],
+      "events": [
+        {
+          "at": "2026-06-20T03:23:55+00:00",
+          "agent": "orchestrator",
+          "status": "in_progress",
+          "note": "Starting Large PDF Mode Milestone 1 backend prepare session with TDD."
+        },
+        {
+          "at": "2026-06-20T03:28:05+00:00",
+          "agent": "orchestrator",
+          "status": "completed",
+          "note": "Implemented Large PDF prepare session backend: /large-pdf/prepare accepts PDF uploads, renders page thumbnails, returns public paper-resolution metadata, stores internal pdf_path in session cache, and preserves existing image page limits. Verified with pytest test/test_large_pdf_mode.py -q, pytest test/test_paper_resolver.py -q, and py_compile on changed backend modules."
+        }
+      ],
+      "updated_at": "2026-06-20T03:28:05+00:00"
+    }
+  ]
+}

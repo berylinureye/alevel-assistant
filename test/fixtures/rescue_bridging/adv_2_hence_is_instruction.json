@@ -1,0 +1,27 @@
+{
+  "name": "adv_2_hence_is_instruction",
+  "category": "adversarial",
+  "description": "Multi-sentence 1a.qt where LAST sentence starts with connective instruction 'Hence find...'. Real A-Level pattern (11 occurrences in 18 real 9709 papers). Rescue sees the last sentence opens with a connective-instruction word ('Hence' is in the instruction-opener whitelist), so it must NOT attempt a strip-match — even if the sentence somehow substring-matched 1b.parent_stem. Rules evaluated in order:\n  1. Is last sentence empty? no.\n  2. Does it open with an instruction-whitelist word? YES ('Hence'). → skip rescue for this item.\nIf rescue logic were 'match against next ps and strip regardless', we'd erroneously strip the real instruction. Whitelist guard is the critical defense.",
+  "pre_items": [
+    {
+      "question_number": "1a",
+      "parent_stem": "Given that y = 3x^2 - 12x + 7.",
+      "question_text": "Find the coordinates of the stationary point. Hence find the minimum value of y.",
+      "page": 1
+    },
+    {
+      "question_number": "1b",
+      "parent_stem": "Given that y = 3x^2 - 12x + 7. Hence find the minimum value of y.",
+      "question_text": "State whether the stationary point is a maximum or minimum.",
+      "page": 1
+    }
+  ],
+  "group_stems": {
+    "1": "Given that y = 3x^2 - 12x + 7."
+  },
+  "expected_post_rescue": [
+    {"question_number": "1a", "question_text": "Find the coordinates of the stationary point. Hence find the minimum value of y.", "parent_stem": "Given that y = 3x^2 - 12x + 7."},
+    {"question_number": "1b", "question_text": "State whether the stationary point is a maximum or minimum.", "parent_stem": "Given that y = 3x^2 - 12x + 7. Hence find the minimum value of y."}
+  ],
+  "expected_strip_log": []
+}

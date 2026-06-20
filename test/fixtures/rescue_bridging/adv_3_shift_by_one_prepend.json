@@ -1,0 +1,29 @@
+{
+  "name": "adv_3_shift_by_one_prepend",
+  "category": "adversarial",
+  "description": "The qwen-vl-max-era 'shift-by-one' pattern observed in bench_out_multi_7pages_page_1.json (Apr 15): VL prepended the bridging to the NEXT sub-part's qt instead of (1a) appending it to the previous. 1b.qt starts with 'The point P(1, 2) lies on the circle.' followed by the real instruction 'Show that...'. Meanwhile 1a.qt is clean.\n\nSymmetric rescue rule: if the FIRST sentence of item i's qt matches the END of item i-1's parent_stem (or matches anywhere in the group stem), strip it from qt start. In this fixture 1a.parent_stem does NOT have the bridging (it's the clean original), but group_stems['1'] is just the clean stem too. So the match target is item i-1's qt (NOT ps) for the shift-by-one variant? No — the bridging is NEVER in prev.qt; it's between prev-instruction and current-label. The correct match is: first sentence of current qt should appear in current item's OWN parent_stem (since VL often correctly puts it there as accumulating-ps pattern) OR in next item's parent_stem if VL pushes it forward.\n\nRATIONALE: the bridging is structurally 'attached to sub-part N' (it's the setup for sub-part N's instruction). When VL prepends to N's qt, that bridging sentence should also appear in N's own ps if VL's two outputs are consistent. So the check is: first sentence of i.qt ∈ i.ps (normalized substring).\n\nThis fixture tests that self-match path. 1b.qt starts with 'The point P...', 1b.ps also contains 'The point P...' → strip from 1b.qt start.",
+  "pre_items": [
+    {
+      "question_number": "1a",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0.",
+      "question_text": "Find the radius of the circle and the coordinates of C.",
+      "page": 1
+    },
+    {
+      "question_number": "1b",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle.",
+      "question_text": "The point P(1, 2) lies on the circle. Show that the equation of the tangent to the circle at P is 4y = 3x + 5.",
+      "page": 1
+    }
+  ],
+  "group_stems": {
+    "1": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."
+  },
+  "expected_post_rescue": [
+    {"question_number": "1a", "question_text": "Find the radius of the circle and the coordinates of C.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."},
+    {"question_number": "1b", "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle."}
+  ],
+  "expected_strip_log": [
+    "1b: stripped leading sentence 'The point P(1, 2) lies on the circle.' (matched in 1b.parent_stem, shift-by-one pattern)"
+  ]
+}

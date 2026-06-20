@@ -1,0 +1,29 @@
+{
+  "name": "case_2_single_bridging_sentence",
+  "category": "normal",
+  "description": "The 23:18 user-screenshot pattern. VL polluted 1a.qt with one trailing bridging sentence. 1b.ps correctly contains that same sentence. Rescue matches 1a's last sentence against 1b.ps (normalized substring), strips it from 1a.qt.",
+  "pre_items": [
+    {
+      "question_number": "1a",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0.",
+      "question_text": "Find the radius of the circle and the coordinates of C. The point P(1, 2) lies on the circle.",
+      "page": 1
+    },
+    {
+      "question_number": "1b",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle.",
+      "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.",
+      "page": 1
+    }
+  ],
+  "group_stems": {
+    "1": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."
+  },
+  "expected_post_rescue": [
+    {"question_number": "1a", "question_text": "Find the radius of the circle and the coordinates of C.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."},
+    {"question_number": "1b", "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle."}
+  ],
+  "expected_strip_log": [
+    "1a: stripped trailing sentence 'The point P(1, 2) lies on the circle.' (matched in 1b.parent_stem)"
+  ]
+}

@@ -1,0 +1,92 @@
+[
+  {
+    "question_number": "1a",
+    "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0.",
+    "question_text": "Find the radius of the circle and the coordinates of C.",
+    "student_answer": "r=5, C:(4,-2)",
+    "working_steps": [
+      "(x-4)^2 - 16 + (y+2)^2 - 4 - 5 = 0",
+      "(x-4)^2 + (y+2)^2 = 5^2",
+      "r=5",
+      "C:(4,-2)"
+    ],
+    "marks": 3,
+    "is_example": false,
+    "image_quality": "good",
+    "confidence": 0.9,
+    "page": 1,
+    "contains_diagram": false,
+    "diagram_type": "null",
+    "_vl_order": 0
+  },
+  {
+    "question_number": "1b",
+    "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle.",
+    "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.",
+    "student_answer": "4y = 3x + 5",
+    "working_steps": [
+      "m_p = -4/3",
+      "-1/m = 3/4",
+      "(y-2) = 3/4(x-1)",
+      "4y - 8 = 3x - 3",
+      "4y = 3x + 5"
+    ],
+    "marks": 3,
+    "is_example": false,
+    "image_quality": "good",
+    "confidence": 0.9,
+    "page": 1,
+    "contains_diagram": false,
+    "diagram_type": "null",
+    "_vl_order": 1
+  },
+  {
+    "question_number": "1c",
+    "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle. The point Q also lies on the circle and PQ is parallel to the x-axis.",
+    "question_text": "Write down the coordinates of Q.",
+    "student_answer": "Q:(7,2)",
+    "working_steps": [
+      "y=2",
+      "(x-4)^2 + 16 = 25",
+      "(x-4)^2 = 9",
+      "x-4 = ±3",
+      "x_1 = 7 x_2 = 1",
+      "Q:(7,2)"
+    ],
+    "marks": 2,
+    "is_example": false,
+    "image_quality": "good",
+    "confidence": 0.9,
+    "page": 1,
+    "contains_diagram": false,
+    "diagram_type": "null",
+    "_vl_order": 2
+  },
+  {
+    "question_number": "1d",
+    "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle. The point Q also lies on the circle and PQ is parallel to the x-axis. The tangents to the circle at P and Q meet at T.",
+    "question_text": "Find the coordinates of T.",
+    "student_answer": "x = -1/6, y = 7/8",
+    "working_steps": [
+      "m: 4/3",
+      "m = -3/4",
+      "(y+2) = -3/4(x-4)",
+      "4y + 8 = -3x + 12",
+      "4y = -3x + 4",
+      "{4y = -3x + 4, 4y = 3x + 5}",
+      "3x + 5 = -3x + 4",
+      "6x + 5 = 4",
+      "6x = -1",
+      "x = -1/6",
+      "y = 7/8"
+    ],
+    "marks": 3,
+    "is_example": false,
+    "image_quality": "good",
+    "confidence": 0.9,
+    "page": 1,
+    "contains_diagram": false,
+    "diagram_type": "null",
+    "_vl_order": 3
+  }
+]

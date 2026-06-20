@@ -1,0 +1,41 @@
+{
+  "name": "case_1_last_subpart",
+  "category": "normal",
+  "description": "1d is the last sub-part in its group. No sibling follows, so even if 1d.qt looks like it has trailing content, rescue has no 'next item' to compare against and must skip it. Also 1a/1b/1c are all clean and should not be touched.",
+  "pre_items": [
+    {
+      "question_number": "1a",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0.",
+      "question_text": "Find the radius of the circle and the coordinates of C.",
+      "page": 1
+    },
+    {
+      "question_number": "1b",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle.",
+      "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.",
+      "page": 1
+    },
+    {
+      "question_number": "1c",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle. The point Q also lies on the circle and PQ is parallel to the x-axis.",
+      "question_text": "Write down the coordinates of Q.",
+      "page": 1
+    },
+    {
+      "question_number": "1d",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle. The point Q also lies on the circle and PQ is parallel to the x-axis. The tangents to the circle at P and Q meet at T.",
+      "question_text": "Find the coordinates of T.",
+      "page": 1
+    }
+  ],
+  "group_stems": {
+    "1": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."
+  },
+  "expected_post_rescue": [
+    {"question_number": "1a", "question_text": "Find the radius of the circle and the coordinates of C.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."},
+    {"question_number": "1b", "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle."},
+    {"question_number": "1c", "question_text": "Write down the coordinates of Q.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle. The point Q also lies on the circle and PQ is parallel to the x-axis."},
+    {"question_number": "1d", "question_text": "Find the coordinates of T.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0. The point P(1, 2) lies on the circle. The point Q also lies on the circle and PQ is parallel to the x-axis. The tangents to the circle at P and Q meet at T."}
+  ],
+  "expected_strip_log": []
+}

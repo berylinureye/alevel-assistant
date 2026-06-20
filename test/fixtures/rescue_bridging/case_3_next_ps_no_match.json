@@ -1,0 +1,27 @@
+{
+  "name": "case_3_next_ps_no_match",
+  "category": "normal",
+  "description": "1a.qt looks polluted by a trailing declarative sentence, but 1b.ps happens to also be polluted (VL put the bridging somewhere else entirely, not in 1b.ps). Rescue cannot verify the candidate is truly bridging — it must leave 1a.qt alone rather than risk stripping a valid instruction. This is the 'conservative failure' path: we accept lingering pollution rather than risk false-strip.",
+  "pre_items": [
+    {
+      "question_number": "1a",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0.",
+      "question_text": "Find the radius of the circle and the coordinates of C. The point P(1, 2) lies on the circle.",
+      "page": 1
+    },
+    {
+      "question_number": "1b",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0.",
+      "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.",
+      "page": 1
+    }
+  ],
+  "group_stems": {
+    "1": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."
+  },
+  "expected_post_rescue": [
+    {"question_number": "1a", "question_text": "Find the radius of the circle and the coordinates of C. The point P(1, 2) lies on the circle.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."},
+    {"question_number": "1b", "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."}
+  ],
+  "expected_strip_log": []
+}

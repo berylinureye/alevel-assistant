@@ -1,0 +1,27 @@
+{
+  "name": "adv_1_setup_opener_is_instruction",
+  "category": "adversarial",
+  "description": "CRITICAL guardrail: 1a.qt is a single sentence that opens with 'Given that' (a setup word, not a verb). The sentence IS the instruction — 'Given that a + b = 216, find the possible values of k.' (a real A-Level pattern from 9709 data). Rescue must NOT strip it, even though its opener matches a 'setup-looking' word, because:\n  1. Stripping would leave 1a.qt empty — forbidden.\n  2. The sentence contains an imperative verb ('find') internally.\n  3. It does NOT substring-match 1b.parent_stem.\nThis is a false-positive trap for naive 'first-word whitelist' logic. The 'no empty qt' + 'internal imperative verb detection' + 'next-ps match required' guards must all hold.",
+  "pre_items": [
+    {
+      "question_number": "1a",
+      "parent_stem": "Two positive constants a and b satisfy a + b = 216.",
+      "question_text": "Given that a + b = 216, find the possible values of k.",
+      "page": 1
+    },
+    {
+      "question_number": "1b",
+      "parent_stem": "Two positive constants a and b satisfy a + b = 216.",
+      "question_text": "Find the exact value of a - b.",
+      "page": 1
+    }
+  ],
+  "group_stems": {
+    "1": "Two positive constants a and b satisfy a + b = 216."
+  },
+  "expected_post_rescue": [
+    {"question_number": "1a", "question_text": "Given that a + b = 216, find the possible values of k.", "parent_stem": "Two positive constants a and b satisfy a + b = 216."},
+    {"question_number": "1b", "question_text": "Find the exact value of a - b.", "parent_stem": "Two positive constants a and b satisfy a + b = 216."}
+  ],
+  "expected_strip_log": []
+}

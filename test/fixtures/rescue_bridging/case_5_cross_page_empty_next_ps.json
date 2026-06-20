@@ -1,0 +1,27 @@
+{
+  "name": "case_5_cross_page_empty_next_ps",
+  "category": "normal",
+  "description": "1a is on page 1, 1b on page 2. The VL call for page 2 could not see the original stem and returned parent_stem='' for 1b (this is the documented CROSS-PAGE-PARENT-STEM behavior from the VL prompt). 1a.qt has trailing bridging. Since 1b.parent_stem is empty, rescue falls back to group_stems['1'] which was populated in Step 1 from 1a's own ps. The group_stems canonical 'earliest page, longest' value here is from 1a itself, so it does NOT contain the bridging — rescue will fail to match and conservatively leave 1a.qt alone.\n\nEDGE-CASE NOTE: this fixture demonstrates that when the cross-page fix has not yet propagated the stem to the continuation-page item, rescue cannot help. That's the correct behavior — rescue must never guess. A follow-up run after _attach_parent_stems Step 2 (which fills empty ps with group canonical) would then give rescue another try, but rescue runs BEFORE Step 2 by design (to decouple from group-max-overwrite). Accepting this trade-off.",
+  "pre_items": [
+    {
+      "question_number": "1a",
+      "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0.",
+      "question_text": "Find the radius of the circle and the coordinates of C. The point P(1, 2) lies on the circle.",
+      "page": 1
+    },
+    {
+      "question_number": "1b",
+      "parent_stem": "",
+      "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.",
+      "page": 2
+    }
+  ],
+  "group_stems": {
+    "1": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."
+  },
+  "expected_post_rescue": [
+    {"question_number": "1a", "question_text": "Find the radius of the circle and the coordinates of C. The point P(1, 2) lies on the circle.", "parent_stem": "The equation of a circle with centre C is x^2 + y^2 - 8x + 4y - 5 = 0."},
+    {"question_number": "1b", "question_text": "Show that the equation of the tangent to the circle at P is 4y = 3x + 5.", "parent_stem": ""}
+  ],
+  "expected_strip_log": []
+}

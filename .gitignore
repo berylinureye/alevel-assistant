@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Build outputs
+dist/
+build/
+frontend/dist/
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Environment secrets - NEVER commit real keys.
+.env
+.env.*
+!.env.example
+!frontend/.env.example
+
+# Local databases and mutable runtime state
+data/feedback.db
+data/*.db-shm
+data/*.db-wal
+
+# Large local paper corpus. Keep the catalog/DB in git; restore PDFs locally
+# or manage them separately with Git LFS/object storage if needed.
+data/papers/
+
+# Large/manual test media. Keep Python tests and small structured fixtures.
+test/*.pdf
+test/*.jpg
+test/*.jpeg
+test/*.JPG
+test/*.JPEG
+test/*.png
+test/*.heic
+test/*.HEIC
+test/segmenter_dumps/
+
+# One-off local screenshots/photos at the repository root.
+/*.jpg
+/*.jpeg
+/*.JPG
+/*.JPEG
+/*.png
+/*.heic
+/*.HEIC
+
+# Local run artifacts
+result.json
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,29 @@
+{
+  "name": "case_4_multiple_bridging_sentences",
+  "category": "normal",
+  "description": "Between 1a and 1b, a typical long-form CAIE setup has 2 bridging sentences — a variable definition + a geometric condition. VL swallowed BOTH into 1a.qt. 1b.ps correctly accumulated both. Rescue greedy-strips longest match first: tries last 3 sentences → no match, tries last 2 → MATCH (both sentences appear in 1b.ps), strips both. Final 1a.qt contains only the real instruction.",
+  "pre_items": [
+    {
+      "question_number": "1a",
+      "parent_stem": "A continuous random variable X has probability density function f(x) = kx^2 for 0 <= x <= 2 and zero elsewhere.",
+      "question_text": "Find the value of the constant k. Given that Y = 3X + 1, it follows that E(Y) = 3E(X) + 1. It is also given that Var(Y) = 9 Var(X).",
+      "page": 1
+    },
+    {
+      "question_number": "1b",
+      "parent_stem": "A continuous random variable X has probability density function f(x) = kx^2 for 0 <= x <= 2 and zero elsewhere. Given that Y = 3X + 1, it follows that E(Y) = 3E(X) + 1. It is also given that Var(Y) = 9 Var(X).",
+      "question_text": "Find E(Y) and Var(Y).",
+      "page": 1
+    }
+  ],
+  "group_stems": {
+    "1": "A continuous random variable X has probability density function f(x) = kx^2 for 0 <= x <= 2 and zero elsewhere."
+  },
+  "expected_post_rescue": [
+    {"question_number": "1a", "question_text": "Find the value of the constant k.", "parent_stem": "A continuous random variable X has probability density function f(x) = kx^2 for 0 <= x <= 2 and zero elsewhere."},
+    {"question_number": "1b", "question_text": "Find E(Y) and Var(Y).", "parent_stem": "A continuous random variable X has probability density function f(x) = kx^2 for 0 <= x <= 2 and zero elsewhere. Given that Y = 3X + 1, it follows that E(Y) = 3E(X) + 1. It is also given that Var(Y) = 9 Var(X)."}
+  ],
+  "expected_strip_log": [
+    "1a: stripped trailing 2 sentences 'Given that Y = 3X + 1, it follows that E(Y) = 3E(X) + 1. It is also given that Var(Y) = 9 Var(X).' (matched in 1b.parent_stem)"
+  ]
+}

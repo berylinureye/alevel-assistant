@@ -1,0 +1,5 @@
+{"id": 1, "question": "求 1+2+3+...+100 的值", "answer": "5050"}
+{"id": 2, "question": "求方程 x^2 - 5x + 6 = 0 的两个根之和", "answer": "5"}
+{"id": 3, "question": "一个等差数列的首项为3，公差为2，第20项是多少？", "answer": "41"}
+{"id": 4, "question": "求 sin(30°) + cos(60°) 的值", "answer": "1"}
+{"id": 5, "question": "若 f(x) = x^3 - 3x，求 f'(2) 的值", "answer": "9"}
