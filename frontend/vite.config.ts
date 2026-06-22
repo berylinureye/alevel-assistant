@@ -27,6 +27,10 @@ export default defineConfig({
       '/chat-question': 'http://localhost:8000',
       '/translate-question': 'http://localhost:8000',
       '/questions': 'http://localhost:8000',
+      '/practice-orchestrator': {
+        target: 'http://localhost:8000',
+        timeout: 120000,
+      },
       '/health': 'http://localhost:8000',
     },
   },
