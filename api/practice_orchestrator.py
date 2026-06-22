@@ -161,7 +161,7 @@ def derive_candidate_topics(req: PracticeRecommendationRequest) -> list[str]:
             ordered.append(topic)
 
     for question in req.questions:
-        if question.is_correct or question.unanswered:
+        if question.is_correct:
             continue
         for tag in question.knowledge_tags:
             topic = _normalise_topic_key(tag, paper_num)
@@ -375,12 +375,30 @@ async def recommend_practice(req: PracticeRecommendationRequest) -> PracticeReco
         )
 
     recommendations: list[PracticeRecommendation] = []
-    recommended_topic = topic
+    recommended_topic: Optional[str] = None
+    selected_ids = set(req.exclude_ids)
+    exclude_ids = list(req.exclude_ids)
     for candidate_topic in topics:
-        recommendations = await run_in_threadpool(_query_recommendations, req, candidate_topic)
-        if recommendations:
-            recommended_topic = candidate_topic
+        if len(recommendations) >= req.count:
             break
+        topic_req = req.model_copy(
+            update={
+                "exclude_ids": exclude_ids,
+                "count": req.count - len(recommendations),
+            }
+        )
+        topic_recommendations = await run_in_threadpool(_query_recommendations, topic_req, candidate_topic)
+        for recommendation in topic_recommendations:
+            if len(recommendations) >= req.count:
+                break
+            if recommendation.question_id is not None:
+                if recommendation.question_id in selected_ids:
+                    continue
+                selected_ids.add(recommendation.question_id)
+                exclude_ids.append(recommendation.question_id)
+            recommendations.append(recommendation)
+            if recommended_topic is None:
+                recommended_topic = candidate_topic
 
     if not recommendations:
         return PracticeRecommendationResponse(
@@ -395,7 +413,7 @@ async def recommend_practice(req: PracticeRecommendationRequest) -> PracticeReco
     return PracticeRecommendationResponse(
         recommendation_mode="auto",
         message="已根据本次批改结果推荐真实题库练习。",
-        detected_topic=recommended_topic,
+        detected_topic=recommended_topic or topic,
         paper_num=paper_num,
         match_confidence=req.context.match_confidence,
         recommendations=recommendations[: req.count],

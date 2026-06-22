@@ -119,6 +119,33 @@ def test_derives_topic_from_priority_topic_first():
     assert topics[0] == "quadratics"
 
 
+def test_derives_topic_from_unanswered_question_tags():
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="single_question_photo",
+            paper_num=None,
+            match_confidence="medium",
+            confirmed_by_user=False,
+            grading_route="open_ai_grading",
+        ),
+        priority_topics=[],
+        knowledge_tags_summary={},
+        questions=[
+            {
+                "question_number": "3",
+                "score": 0,
+                "full_score": 5,
+                "is_correct": False,
+                "unanswered": True,
+                "knowledge_tags": ["Quadratics"],
+            }
+        ],
+        exclude_ids=[],
+    )
+
+    assert derive_candidate_topics(req) == ["quadratics"]
+
+
 def test_invalid_explicit_paper_returns_boundary_message_without_query(monkeypatch):
     def fail_if_queried(_req, _topic):
         raise AssertionError("invalid explicit paper must not query unscoped recommendations")
@@ -186,6 +213,74 @@ def test_auto_recommendations_fall_back_to_later_candidate_topic(monkeypatch):
     assert response.recommendation_mode == "auto"
     assert response.detected_topic == "differentiation_p1"
     assert response.recommendations[0].question_id == 42
+
+
+def test_auto_recommendations_fill_count_across_candidate_topics(monkeypatch):
+    calls: list[tuple[str, int, list[int]]] = []
+
+    def fake_query(req, topic):
+        calls.append((topic, req.count, list(req.exclude_ids)))
+        if topic == "quadratics":
+            return [
+                PracticeRecommendation(
+                    id="foundation-11",
+                    question_id=11,
+                    topic="quadratics",
+                    difficulty="foundation",
+                    title="基础修复",
+                    reason="first weak topic only had one question",
+                    trigger="auto",
+                    paper_num=1,
+                )
+            ]
+        if topic == "differentiation_p1":
+            return [
+                PracticeRecommendation(
+                    id="foundation-21",
+                    question_id=21,
+                    topic="differentiation_p1",
+                    difficulty="foundation",
+                    title="基础修复",
+                    reason="second weak topic fills the request",
+                    trigger="auto",
+                    paper_num=1,
+                ),
+                PracticeRecommendation(
+                    id="consolidation-22",
+                    question_id=22,
+                    topic="differentiation_p1",
+                    difficulty="consolidation",
+                    title="巩固练习",
+                    reason="second weak topic fills the request",
+                    trigger="auto",
+                    paper_num=1,
+                ),
+            ]
+        return []
+
+    import api.practice_orchestrator as orchestrator
+
+    monkeypatch.setattr(orchestrator, "_query_recommendations", fake_query)
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="past_paper",
+            paper_num=1,
+            match_confidence="high",
+            confirmed_by_user=False,
+            grading_route="past_paper_mark_scheme",
+        ),
+        priority_topics=[{"topic": "Quadratics"}, {"topic": "differentiation"}],
+        count=3,
+    )
+
+    response = asyncio.run(recommend_practice(req))
+
+    assert calls == [
+        ("quadratics", 3, []),
+        ("differentiation_p1", 2, [11]),
+    ]
+    assert response.recommendation_mode == "auto"
+    assert [rec.question_id for rec in response.recommendations] == [11, 21, 22]
 
 
 def test_query_recommendations_does_not_unscope_invalid_confirmed_paper(monkeypatch):
