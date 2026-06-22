@@ -128,9 +128,13 @@ node ../scripts/visual_acceptance.mjs --path /__practice-recommendations-replay 
 
 ## 进一步阅读
 
+- [项目展示文档入口](project-docs/README.md)
 - [产品思路](docs/PRODUCT.md)
 - [开发路线](docs/ROADMAP.md)
 - [数据策略](docs/DATA.md)
+- [规则校验与确定性兜底](docs/rule-based-verification.md)
+- [Agent 驱动开发与提效系统](docs/agent-driven-development.md)
+- [Superpowers 插件使用说明](docs/superpowers-plugin-workflow.md)
 - [本地运行](RUN.md)
 - [部署指南](DEPLOY.md)
 - [题库系统方案](docs/question-bank-proposal.md)
