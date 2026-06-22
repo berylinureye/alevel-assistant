@@ -9,9 +9,21 @@ if str(ROOT) not in sys.path:
 
 import api.paper_resolver as paper_resolver
 from api.paper_resolver import build_user_hint_with_resolution, resolve_paper_context
+from questionbank.mark_scheme import PaperAssetPaths
 
 
-def test_manual_paper_code_exact_catalog_match() -> None:
+def test_manual_paper_code_exact_catalog_match(monkeypatch) -> None:
+    monkeypatch.setattr(
+        paper_resolver,
+        "resolve_paper_asset_paths",
+        lambda _catalog_match: PaperAssetPaths(
+            qp_path=ROOT / "data/papers/9709/2016/9709_s16_qp_12.pdf",
+            ms_path=ROOT / "data/papers/9709/2016/9709_s16_ms_12.pdf",
+            available=True,
+            reason="test assets are available",
+        ),
+    )
+
     result = resolve_paper_context(
         upload_intent="past_paper",
         paper_code="9709/12/M/J/16",
