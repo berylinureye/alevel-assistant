@@ -13,6 +13,7 @@ import { HistoryTab } from './components/HistoryTab'
 import { SummaryTab } from './components/SummaryTab'
 import { ProfileTab } from './components/ProfileTab'
 import { PaperBrowser } from './components/practice/PaperBrowser'
+import { PracticeRecommendations } from './components/practice/PracticeRecommendations'
 import { FeedbackPanel } from './components/FeedbackPanel'
 import { saveRecord } from './lib/history'
 import { newSessionId } from './lib/userId'
@@ -105,6 +106,7 @@ export default function App() {
     Record<string, Record<string, AgentRunState>>
   >({})
   const [summary, setSummary] = useState<PageSummaryType | null>(null)
+  const [lastAnalyzeRequest, setLastAnalyzeRequest] = useState<AnalyzeRequest | null>(null)
   const [totalExpected, setTotalExpected] = useState(0)
   /** 与 totalExpected 同步，供回调中立即读取（多图并发） */
   const totalExpectedRef = useRef(0)
@@ -151,6 +153,7 @@ export default function App() {
     setExtractedQuestions([])
     setAgentStatusByQuestion({})
     setSummary(null)
+    setLastAnalyzeRequest(null)
     setThinkingLog([])
     setAgentSteps([])
     setProgressDetail(null)
@@ -189,6 +192,7 @@ export default function App() {
     analysisAbortControllerRef.current = abortController
     imageUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
     const newUrls = req.images.map((file) => URL.createObjectURL(file))
+    setLastAnalyzeRequest(req)
     imageUrlsRef.current = newUrls
     setImageUrls(newUrls)
 
@@ -587,7 +591,17 @@ export default function App() {
               </>
             ) : null}
 
-            {showSummaryBlock ? <PageSummary summary={summary} /> : null}
+            {showSummaryBlock ? (
+              <>
+                <PageSummary summary={summary} />
+                <PracticeRecommendations
+                  request={lastAnalyzeRequest}
+                  agentSteps={agentSteps}
+                  summary={summary}
+                  questions={questions}
+                />
+              </>
+            ) : null}
 
             {!loading && questions.length > 0 ? (
               <FeedbackPanel
