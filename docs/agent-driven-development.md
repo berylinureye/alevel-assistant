@@ -13,6 +13,8 @@
 
 这篇文档讲的是第二类：开发 harness。
 
+Superpowers 插件是这套 harness 的方法层：它规定什么时候先做 brainstorming，什么时候写 implementation plan，什么时候派 subagent，什么时候必须拿验证证据。更深入的插件说明见 [Superpowers 插件使用说明](superpowers-plugin-workflow.md)。
+
 ## 1. 把需求写成 agent 可执行的规格
 
 相关文件：
@@ -99,7 +101,25 @@ python scripts/agent_workflow.py note --agent orchestrator --text "Learned: keep
 
 关键规则：谁写出的 bug，谁修；谁发现的问题，谁复验。这样可以保留局部上下文，不会每一轮都重新解释。
 
-## 5. Agent 完全干活的关键不是「放手」，而是「搭护栏」
+## 5. Superpowers 插件如何参与这套流程
+
+Superpowers 提供的是流程纪律，仓库内 `agent_workflow/` 提供的是项目记忆。二者结合后，agent 不只是按一次 prompt 工作，而是按固定链路推进：
+
+```text
+brainstorming
+  -> design spec
+  -> writing-plans
+  -> subagent-driven-development
+  -> spec review
+  -> code quality review
+  -> verification-before-completion
+  -> git commit / push
+  -> progress / knowledge update
+```
+
+这套流程的深层价值是把「会不会用 agent」从 prompt 技巧变成管理系统：每个 agent 都要知道目标、边界、文件范围、验收标准和证据要求。
+
+## 6. Agent 完全干活的关键不是「放手」，而是「搭护栏」
 
 这个项目里让 agent 高效工作的护栏包括：
 
@@ -112,7 +132,7 @@ python scripts/agent_workflow.py note --agent orchestrator --text "Learned: keep
 
 这背后是一个 AI PM 技巧：不要幻想 agent 天然知道产品边界，要把边界写成它每次都会读到的文件。
 
-## 6. 从功能迭代看 agent workflow 怎么提效
+## 7. 从功能迭代看 agent workflow 怎么提效
 
 已经在 `agent_workflow/prd.json` 跑过的任务包括：
 
@@ -125,7 +145,7 @@ python scripts/agent_workflow.py note --agent orchestrator --text "Learned: keep
 
 这些任务横跨后端、前端、视觉验收和产品文案。如果只靠一条长聊天记录，很容易丢上下文；写进 workflow 后，每个任务都能被继续、复查和复盘。
 
-## 7. 和 AI 产品经理方法的对应关系
+## 8. 和 AI 产品经理方法的对应关系
 
 | AI PM 技巧 | 在项目里的落地 |
 | --- | --- |
@@ -133,10 +153,11 @@ python scripts/agent_workflow.py note --agent orchestrator --text "Learned: keep
 | 显式目标函数 | 「30 秒内最高正确率」驱动多 agent、早返回和 SSE |
 | 风险矩阵 | 低置信、低画质、复杂步骤、模型分歧都会升级或 needs_review |
 | 递进式交付 | 先 mark-scheme grounding，再 agent_step replay，再视觉 runner，再 Large PDF |
+| Agent 方法论 | Superpowers 把 brainstorm、spec、plan、subagent、review、verification 固化成流程 |
 | 证据驱动验收 | pytest、build、browser screenshot、DOM proof、SSE sample |
 | 复盘沉淀 | durable lessons 写入 `agent_workflow/knowledge.md`，避免下次重复踩坑 |
 
-## 8. 这套方法为什么有效
+## 9. 这套方法为什么有效
 
 Agent 最大的问题不是不会写代码，而是容易：
 
@@ -160,7 +181,7 @@ Spec
 
 最终效果是：agent 不只是帮我写代码，而是按我设定的产品目标、工程边界和验收证据持续推进项目。
 
-## 9. 可以复用到其他 AI 项目的模板
+## 10. 可以复用到其他 AI 项目的模板
 
 如果要把这套方法迁移到别的项目，可以保留这些文件形态：
 
