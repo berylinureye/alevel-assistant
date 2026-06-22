@@ -6,6 +6,7 @@ import App from './App.tsx'
 import LandingPage from './pages/landing/LandingPage.tsx'
 import { AgentStepReplayPage } from './pages/AgentStepReplayPage.tsx'
 import { QuestionCardReplayPage } from './pages/QuestionCardReplayPage.tsx'
+import { PracticeRecommendationsReplayPage } from './pages/PracticeRecommendationsReplayPage.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { trackEvent } from './api/client'
 
@@ -43,6 +44,9 @@ createRoot(document.getElementById('root')!).render(
           ) : null}
           {import.meta.env.DEV ? (
             <Route path="/__question-card-replay" element={<QuestionCardReplayPage />} />
+          ) : null}
+          {import.meta.env.DEV ? (
+            <Route path="/__practice-recommendations-replay" element={<PracticeRecommendationsReplayPage />} />
           ) : null}
           <Route path="/landing" element={<LandingPage />} />
           <Route path="*" element={<App />} />

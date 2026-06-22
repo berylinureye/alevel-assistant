@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test:agent-steps": "node scripts/replay-agent-steps.mjs",
     "test:practice-context": "node scripts/test-practice-context.mjs",
+    "test:practice-orchestrator": "node scripts/replay-practice-orchestrator.mjs",
     "test:question-card": "node scripts/replay-question-card.mjs",
     "test:visual": "node ../scripts/visual_acceptance.mjs"
   },
