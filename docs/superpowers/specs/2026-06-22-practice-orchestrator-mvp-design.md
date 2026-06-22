@@ -1,91 +1,103 @@
-# Practice Orchestrator MVP Design
+# 练习编排器 MVP 设计规格
 
-Date: 2026-06-22
+日期：2026-06-22
 
-## Goal
+## 目标
 
-Turn grading from a one-time correction report into a learning loop: grade the student's work, diagnose the weakest next topic, recommend practice, grade the new answer, then adapt the next recommendation.
+把批改从“一次性纠错报告”升级成学习闭环：
 
-## Product Principle
+批改学生作业 → 诊断最该补的薄弱点 → 推荐练习 → 学生作答 → 再批改 → 根据新结果调整下一题。
 
-The product should make students feel guided, not judged. Every grading result should lead to one concrete next study action. AI transparency should explain why a recommendation was chosen, not expose internal model logs.
+这个版本的重点不是做一个很复杂的学习系统，而是先证明一个核心产品价值：**AI 不只是告诉学生错了什么，还能告诉学生下一步该练什么。**
 
-## MVP Entry Point
+## 产品原则
 
-The first version starts from the grading result page.
+产品要让学生感觉自己被指导，而不是被审判。
 
-After a homework or Past Paper submission finishes, the results page shows a `下一步练习` section below the learning diagnosis. The student can start recommended practice immediately from the weak topics detected in the current grading session.
+每一次批改结果都必须导向一个具体学习动作。
 
-This is preferred over building a separate learning-plan page because it keeps the loop attached to the moment of correction, when the student most needs the next action.
+AI 透明度的目标是建立信任：告诉学生“为什么推荐这道题”，而不是展示模型内部日志。
 
-## Existing Building Blocks
+## MVP 入口
 
-The repository already has useful foundations:
+第一版从批改结果页进入。
 
-- Grading output contains `knowledge_tags`, `syllabus_topics`, `error_type`, `score`, `full_score`, and `needs_review` on each question.
-- Page summary contains `priority_topics` and `knowledge_tags_summary`.
-- Question bank models already support `topic`, `subtopic`, `difficulty`, `tags`, `marking_points`, and `common_errors`.
-- Practice APIs already exist under `/questions/random` and `/questions/submit-answer`.
-- Frontend has a Practice mode, answer input, result display, and summary components.
+学生上传作业或 Past Paper，批改完成后，在结果页的学习诊断下面出现 `下一步练习` 区块。学生可以直接从本次批改暴露出的薄弱知识点开始练习。
 
-The MVP should reuse these pieces instead of building a new practice system.
+这个入口优先于单独做一个“学习计划页”，因为它离学生刚刚犯错的时刻最近，也最容易让学生理解：“我现在该补什么？”
 
-## User Flow
+## 现有基础
 
-1. Student uploads work and receives grading results.
-2. The system identifies the top weak topic from `summary.priority_topics` first, falling back to wrong-question `knowledge_tags` if needed.
-3. The result page shows `下一步练习` with up to three recommended items:
-   - `基础修复`: lower difficulty, same topic.
-   - `巩固练习`: medium difficulty, same topic.
-   - `真题风格`: higher difficulty or exam-style source when available.
-4. Student clicks `开始练习`.
-5. The question opens in an inline practice panel, visually aligned with the grading page.
-6. Student submits an answer.
-7. The existing `/questions/submit-answer` endpoint grades the answer.
-8. The panel shows correctness, score, short feedback, and the next action:
-   - If correct with high score: suggest a harder same-topic question.
-   - If partially correct: suggest another same-topic medium question.
-   - If wrong: suggest an easier foundation question or a brief review.
-9. The current session remembers recommended and completed question IDs to avoid immediate repeats.
+仓库里已经有一些可以复用的基础，不需要从零做：
 
-## Recommendation Strategy
+- 批改结果的每题数据里已有 `knowledge_tags`、`syllabus_topics`、`error_type`、`score`、`full_score`、`needs_review`。
+- 总结数据里已有 `priority_topics` 和 `knowledge_tags_summary`。
+- 题库模型已经支持 `topic`、`subtopic`、`difficulty`、`tags`、`marking_points`、`common_errors`。
+- 后端已有 `/questions/random` 和 `/questions/submit-answer`。
+- 前端已有练习模式、答案输入、练习结果和练习总结组件。
 
-### Inputs
+MVP 应该优先复用这些模块，而不是另起一套练习系统。
+
+## 用户流程
+
+1. 学生上传作业并获得批改结果。
+2. 系统先从 `summary.priority_topics` 找最重要薄弱点；如果没有，再从错题的 `knowledge_tags` 中统计。
+3. 结果页显示 `下一步练习`，最多展示 3 个推荐：
+   - `基础修复`：同知识点，低难度。
+   - `巩固练习`：同知识点，中等难度。
+   - `真题风格`：同知识点，高难度或 exam-style 来源。
+4. 学生点击 `开始练习`。
+5. 题目以内联面板打开，不跳走批改结果页。
+6. 学生提交答案。
+7. 系统复用 `/questions/submit-answer` 批改答案。
+8. 面板显示正确性、得分、简短反馈和下一步动作：
+   - 如果高分做对：推荐更难的同知识点题。
+   - 如果部分正确：推荐另一道中等难度同知识点题。
+   - 如果做错：推荐更基础的题，或提示先回看讲解。
+9. 当前 session 记录已推荐和已完成题目，避免立刻重复推荐。
+
+## 推荐策略
+
+### 输入数据
+
+推荐器使用这些输入：
 
 - `PageSummary.priority_topics`
-- Wrong or partially correct `QuestionResult` items
+- 错题或部分正确题的 `QuestionResult`
 - `knowledge_tags`
 - `error_type`
 - `score / full_score`
 - `needs_review`
-- Existing question-bank metadata
+- 题库里的 `topic / subtopic / difficulty / tags`
 
-### Topic Selection
+### 薄弱点选择
 
-Use this priority order:
+优先级如下：
 
-1. `summary.priority_topics[0]` when present.
-2. Most frequent `knowledge_tags` among incorrect questions.
-3. Most frequent `error_type` mapped to a broad fallback topic.
-4. If no topic is available, show a clear fallback state instead of pretending to know.
+1. 如果 `summary.priority_topics[0]` 存在，优先用它。
+2. 否则统计错题里出现最多的 `knowledge_tags`。
+3. 如果标签也不足，用 `error_type` 映射到宽泛 topic。
+4. 如果完全无法判断 topic，显示明确 fallback，不假装知道学生薄弱点。
 
-### Question Selection
+### 题目选择
 
-For each weak topic, request question-bank items through `/questions/random` with:
+对每个薄弱 topic，通过 `/questions/random` 请求候选题：
 
-- `topics`: selected topic or mapped topic key.
-- `exclude_ids`: IDs already recommended or completed in the current session.
-- difficulty bands:
-  - foundation: `1-2`
-  - consolidation: `3`
-  - exam-style: `4-5`
-- `count`: enough candidates to fill three cards.
+- `topics`：选中的 topic 或映射后的 topic key。
+- `exclude_ids`：当前 session 已推荐或已完成的题目 ID。
+- 难度分层：
+  - 基础修复：`1-2`
+  - 巩固练习：`3`
+  - 真题风格：`4-5`
+- `count`：一次请求足够多候选题，用于填满 3 张推荐卡。
 
-If the exact topic has no available questions, broaden to parent topic or related tags. If no match exists, show a disabled fallback card that says real practice is unavailable until more tagged questions are added.
+如果精确 topic 找不到题，放宽到父级 topic 或相关 tag。
 
-## Data Contracts
+如果仍然没有真实题目，显示禁用态 fallback 卡片，说明“当前题库还缺少这个知识点的已标注练习题”，不要展示假推荐。
 
-### Frontend View Model
+## 数据结构
+
+### 前端推荐视图模型
 
 ```ts
 interface PracticeRecommendation {
@@ -101,7 +113,7 @@ interface PracticeRecommendation {
 }
 ```
 
-### Session State
+### 当前练习闭环状态
 
 ```ts
 interface PracticeLoopState {
@@ -119,26 +131,37 @@ interface PracticeLoopState {
 }
 ```
 
-The first version can keep this state in React state. Persistent mastery tracking is a later phase.
+第一版可以只放在 React state 里。
 
-## UI Design
+长期 mastery profile、跨天记忆、间隔复习都放到后续阶段。
 
-The UI should stay close to the current grading style: white panels, slate text, blue accents, compact cards, and no decorative dashboard look.
+## UI 设计
 
-`下一步练习` appears after the main diagnosis. Each card should show:
+视觉风格要和当前批改页保持一致：
 
-- recommendation type
-- topic and subtopic
-- difficulty label
-- one-sentence reason
-- source metadata when available
-- `开始练习` button
+- 白色面板
+- slate 文字
+- blue accent
+- 轻边框
+- 紧凑卡片
+- 不做炫技 dashboard
 
-After a student starts practice, use an inline panel rather than navigating away. The student should feel the grading result naturally continued into practice.
+`下一步练习` 放在学习诊断之后。每张推荐卡展示：
 
-## Agentic Loop Presentation
+- 推荐类型
+- topic / subtopic
+- 难度标签
+- 一句话推荐理由
+- 题目来源信息
+- `开始练习` 按钮
 
-Do not show raw `think / act / observe` labels to students. Use learning language:
+学生开始练习后，用内联面板显示题目和答题区，不跳转页面。体验上应该像批改结果自然延伸出了下一步练习。
+
+## Agentic Loop 的呈现方式
+
+不要在学生界面显示原始 `think / act / observe`。
+
+学生看到的是学习语言：
 
 - `定位弱点`
 - `选择练习`
@@ -147,79 +170,81 @@ Do not show raw `think / act / observe` labels to students. Use learning languag
 - `调整下一题`
 - `总结进步`
 
-Internally, this corresponds to:
+内部可以对应到 agentic loop：
 
-- observe: read grading and practice result
-- think: choose weak topic and difficulty
-- act: fetch or generate next practice item
-- observe: grade submitted answer
-- decide: raise, repeat, or simplify
-- final: summarize next study action
+- observe：读取批改结果和练习结果。
+- think：判断薄弱 topic 和难度。
+- act：从题库获取下一题。
+- observe：批改学生新提交的答案。
+- decide：升难度、重复巩固、降难度或建议回看讲解。
+- final：总结下一步学习动作。
 
-## Tagging Strategy
+## 题库打标策略
 
-A fully hand-tagged question bank is not required before launching this loop.
+第一版不要求先完整人工打标题库。
 
-MVP tagging should be progressive:
+MVP 采用渐进打标策略：
 
-1. Use existing `topic`, `subtopic`, `difficulty`, and `tags`.
-2. Map grading `knowledge_tags` to question-bank topics with a small alias table.
-3. When recommendations fail because of missing tags, log the missing topic key.
-4. Later, run an AI-assisted batch tagging job over high-traffic or untagged questions.
-5. Human-review only the questions that are frequently recommended or low-confidence.
+1. 先使用题库已有的 `topic`、`subtopic`、`difficulty`、`tags`。
+2. 建一个小型 alias map，把批改输出的 `knowledge_tags` 映射到题库 topic。
+3. 如果推荐失败是因为标签缺失，记录缺失的 topic key。
+4. 后续对高频缺失 topic 或高频推荐题做 AI 辅助批量打标。
+5. 只对高频推荐或低置信度题目做人审。
 
-This avoids blocking the product on a complete taxonomy project.
+这样不会因为“题库标签还没完美”而卡住产品闭环。
 
-## Error And Fallback States
+## 错误和 fallback 状态
 
-- No weak topic found: show `本次表现较均衡` and suggest general mixed practice.
-- Topic found but no question-bank match: show the weak topic and say the real question bank needs more tagged questions.
-- Practice grading fails: preserve the student's answer and show retry.
-- AI confidence low or `needs_review` is true: recommend teacher review before adaptive practice.
-- Duplicate recommendation risk: exclude already completed and already shown IDs.
+- 没找到薄弱点：显示 `本次表现较均衡`，推荐综合练习。
+- 找到 topic 但题库没有匹配题：显示该薄弱点，并说明题库需要更多已标注题目。
+- 提交练习答案失败：保留学生答案，提供重试。
+- AI 置信度低或 `needs_review` 为 true：建议老师复核后再进入自适应练习。
+- 避免重复推荐：排除当前 session 已完成和已展示过的题目 ID。
 
-## Non-Goals For MVP
+## MVP 不做什么
 
-- Long-term mastery profile across days.
-- Full spaced-repetition scheduling.
-- Full automatic question-bank retagging.
-- AI-generated new questions as the default path.
-- Separate learning-plan page.
-- Complex multi-agent debug trace in the student UI.
+第一版不做：
 
-## Implementation Phases
+- 跨天长期 mastery profile。
+- 完整间隔复习系统。
+- 全自动题库重打标系统。
+- 默认用 AI 生成新题。
+- 独立学习计划页。
+- 学生可见的复杂多 agent 调试日志。
 
-### Phase 1: Recommendation Cards
+## 实施阶段
 
-Show `下一步练习` after grading using current session results and existing `/questions/random`.
+### Phase 1：推荐卡片
 
-### Phase 2: Inline Practice Attempt
+批改完成后，根据当前 session 结果和 `/questions/random` 显示 `下一步练习`。
 
-Let students answer one recommended question inline and grade it using `/questions/submit-answer`.
+### Phase 2：内联练习
 
-### Phase 3: Adaptive Next Step
+学生可以在结果页内完成一道推荐题，并通过 `/questions/submit-answer` 批改。
 
-After the practice answer is graded, choose one next recommendation based on correctness and score.
+### Phase 3：自适应下一步
 
-### Phase 4: Lightweight Mastery Memory
+练习批改后，根据正确性和得分推荐下一题或建议回看讲解。
 
-Persist topic attempts locally or in the existing feedback/history storage so future sessions can avoid repeats and show progress.
+### Phase 4：轻量掌握度记忆
 
-## Acceptance Criteria
+把 topic 尝试记录存到本地或现有 history/feedback 存储里，用于避免重复和显示进步。
 
-- After a grading run with at least one wrong or partial question, the result page shows at least one practice recommendation when matching question-bank items exist.
-- Each recommendation shows topic, difficulty, and a reason tied to the grading result.
-- Starting a recommendation opens an inline practice panel without losing the grading result.
-- Submitting an answer calls `/questions/submit-answer` and displays the grading result.
-- After practice grading, the UI shows a next action: harder, repeat, easier, or review.
-- The loop excludes already completed question IDs within the current session.
-- If no real question is available, the UI shows a clear fallback rather than a fake recommendation.
-- Evidence must include a real browser screenshot or DOM proof, not only logs.
+## 验收标准
 
-## Test Plan
+- 一次批改中存在错题或部分正确题时，结果页能显示至少一个真实练习推荐。
+- 每条推荐都显示 topic、难度和与本次错因相关的推荐理由。
+- 点击推荐后，在当前结果页打开内联练习面板，不丢失批改结果。
+- 提交答案后调用 `/questions/submit-answer` 并展示批改结果。
+- 练习批改后展示下一步动作：升难度、继续巩固、降难度或回看讲解。
+- 当前 session 内不会重复推荐已完成题目。
+- 如果没有真实题目可推荐，UI 显示明确 fallback，不展示假题。
+- 验收必须包含真实浏览器截图或 DOM 证据，不能只靠日志。
 
-- Unit-test recommendation derivation from `PageSummary` and `QuestionResult` fixtures.
-- Component-test or replay-test the `下一步练习` panel with fixture grading results.
-- API integration test that `/questions/random` can return candidates for a selected topic.
-- Browser visual acceptance for desktop and mobile with recommendations visible.
-- Regression check that grading results still render without recommendations when no weak topic exists.
+## 测试计划
+
+- 用 `PageSummary` 和 `QuestionResult` fixture 测试推荐推导逻辑。
+- 用 replay/component 测试 `下一步练习` 面板。
+- 测试 `/questions/random` 能按选中 topic 返回候选题。
+- 桌面和移动端做浏览器视觉验收，确保推荐卡片可见且无横向溢出。
+- 回归检查：没有薄弱 topic 时，批改结果仍能正常渲染并显示合理 fallback。
