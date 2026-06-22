@@ -125,6 +125,10 @@ def normalise_paper_num(value: Optional[int]) -> Optional[int]:
     return None
 
 
+def _has_invalid_explicit_paper(value: Optional[int]) -> bool:
+    return value is not None and normalise_paper_num(value) is None
+
+
 def _normalise_topic_key(value: object, paper_num: Optional[int]) -> Optional[str]:
     text = str(value or "").strip()
     if not text:
@@ -176,6 +180,8 @@ def choose_recommendation_mode(
     has_topic: bool,
     has_review_risk: bool,
 ) -> PracticeRecommendationMode:
+    if _has_invalid_explicit_paper(context.paper_num):
+        return "none"
     if context.recommendation_mode in {"auto", "ask_first", "none"}:
         return context.recommendation_mode
     if not has_topic:
@@ -215,6 +221,9 @@ def _reason_for_slot(title: str, topic: str, scoped_to_paper: bool) -> str:
 
 
 def _query_recommendations(req: PracticeRecommendationRequest, topic: str) -> list[PracticeRecommendation]:
+    if _has_invalid_explicit_paper(req.context.paper_num):
+        return []
+
     paper_num = normalise_paper_num(req.context.paper_num)
     scoped_to_paper = paper_num is not None and (
         req.context.confirmed_by_user
@@ -269,8 +278,18 @@ async def recommend_practice(req: PracticeRecommendationRequest) -> PracticeReco
     topics = derive_candidate_topics(req)
     topic = topics[0] if topics else None
     has_review_risk = any(q.needs_review for q in req.questions)
-    mode = choose_recommendation_mode(req.context, has_topic=topic is not None, has_review_risk=has_review_risk)
     paper_num = normalise_paper_num(req.context.paper_num)
+    if _has_invalid_explicit_paper(req.context.paper_num):
+        return PracticeRecommendationResponse(
+            recommendation_mode="none",
+            message="当前推荐题库只支持 P1-P6。请确认 paper number 后再生成同 paper 练习。",
+            detected_topic=topic,
+            paper_num=None,
+            match_confidence=req.context.match_confidence,
+            recommendations=[],
+        )
+
+    mode = choose_recommendation_mode(req.context, has_topic=topic is not None, has_review_risk=has_review_risk)
 
     if mode == "none" or topic is None:
         return PracticeRecommendationResponse(
@@ -293,7 +312,14 @@ async def recommend_practice(req: PracticeRecommendationRequest) -> PracticeReco
             recommendations=[],
         )
 
-    recommendations = await run_in_threadpool(_query_recommendations, req, topic)
+    recommendations: list[PracticeRecommendation] = []
+    recommended_topic = topic
+    for candidate_topic in topics:
+        recommendations = await run_in_threadpool(_query_recommendations, req, candidate_topic)
+        if recommendations:
+            recommended_topic = candidate_topic
+            break
+
     if not recommendations:
         return PracticeRecommendationResponse(
             recommendation_mode="none",
@@ -307,7 +333,7 @@ async def recommend_practice(req: PracticeRecommendationRequest) -> PracticeReco
     return PracticeRecommendationResponse(
         recommendation_mode="auto",
         message="已根据本次批改结果推荐真实题库练习。",
-        detected_topic=topic,
+        detected_topic=recommended_topic,
         paper_num=paper_num,
         match_confidence=req.context.match_confidence,
         recommendations=recommendations[: req.count],
