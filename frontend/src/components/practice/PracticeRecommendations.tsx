@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AgentStepData } from '../../api/client'
 import { recommendPractice } from '../../api/practiceOrchestrator'
 import { submitAnswer } from '../../api/practice'
@@ -26,6 +26,22 @@ interface Props {
   answerSubmitter?: typeof submitAnswer
 }
 
+interface LoadArgs {
+  forceConfirmed: boolean
+  preferredRange?: [number, number]
+}
+
+function stableKey(parts: Array<boolean | number | string | null | undefined>): string {
+  return parts.map((part) => (part == null ? '' : String(part))).join('~')
+}
+
+function recordKey(value: Record<string, number> | undefined): string {
+  return Object.entries(value ?? {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, count]) => `${key}:${count}`)
+    .join(',')
+}
+
 function modeLabel(response: PracticeRecommendationResponse): string {
   if (response.recommendation_mode === 'auto') return '下一步练习'
   if (response.recommendation_mode === 'ask_first') return '要不要继续练这个点？'
@@ -46,6 +62,81 @@ function recommendationQuestionIds(response: PracticeRecommendationResponse | un
     .filter((id): id is number => typeof id === 'number') ?? []
 }
 
+function recommendationResponseKey(response: PracticeRecommendationResponse | undefined): string {
+  if (!response) return ''
+  return stableKey([
+    response.status,
+    response.recommendation_mode,
+    response.message,
+    response.detected_topic,
+    response.detected_subtopic,
+    response.paper_num,
+    response.match_confidence,
+    response.recommendations
+      .map((item) => stableKey([
+        item.id,
+        item.question_id,
+        item.topic,
+        item.subtopic,
+        item.difficulty,
+        item.title,
+        item.reason,
+        item.source_label,
+      ]))
+      .join('|'),
+  ])
+}
+
+function gradingRunKey(
+  request: AnalyzeRequest | null,
+  summary: PageSummary | null,
+  questions: QuestionResult[],
+): string {
+  const requestKey = stableKey([
+    request?.upload_intent,
+    request?.paper_code,
+    request?.question_numbers,
+    request?.upload_ids?.map((id) => id ?? '').join(','),
+    request?.images.map((file) => stableKey([file.name, file.size, file.lastModified, file.type])).join(','),
+  ])
+
+  const summaryKey = summary
+    ? stableKey([
+        summary.total_questions,
+        summary.correct_count,
+        summary.incorrect_count,
+        summary.unanswered_count,
+        summary.review_count,
+        summary.score_total,
+        summary.full_score_total,
+        recordKey(summary.knowledge_tags_summary),
+        summary.priority_topics
+          .map((topic) => stableKey([topic.topic, topic.subtopic, topic.chapter, topic.error_count]))
+          .join('|'),
+      ])
+    : ''
+
+  const questionsKey = questions
+    .map((question) => stableKey([
+      question.question_number,
+      question.page,
+      question.score,
+      question.full_score,
+      question.is_correct,
+      question.unanswered,
+      question.needs_review,
+      question.error_type,
+      question.knowledge_tags?.join(','),
+      question.grading_route,
+      question.mark_scheme_confidence,
+      question.student_answer,
+      question.correct_answer,
+    ]))
+    .join('|')
+
+  return stableKey([requestKey, summaryKey, questionsKey])
+}
+
 export function PracticeRecommendations({
   request,
   agentSteps,
@@ -55,6 +146,14 @@ export function PracticeRecommendations({
   loader = recommendPractice,
   answerSubmitter = submitAnswer,
 }: Props) {
+  const runKey = useMemo(() => gradingRunKey(request, summary, questions), [questions, request, summary])
+  const initialResponseKey = useMemo(() => recommendationResponseKey(initialResponse), [initialResponse])
+  const initialResponseRef = useRef(initialResponse)
+  const initialRecommendedIdsRef = useRef(recommendationQuestionIds(initialResponse))
+  const requestIdRef = useRef(0)
+  const loadingRef = useRef(false)
+  const lastLoadArgsRef = useRef<LoadArgs>({ forceConfirmed: false })
+
   const [response, setResponse] = useState<PracticeRecommendationResponse | null>(initialResponse ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,20 +167,33 @@ export function PracticeRecommendations({
 
   const canLoad = summary !== null && questions.length > 0
 
-  const baseRequest = useMemo(() => {
-    if (!summary) return null
-    return buildPracticeRequest({
-      request,
-      agentSteps,
-      summary,
-      questions,
-      excludeIds: [...recommendedIds, ...completedIds],
-      confirmedByUser: confirmed,
-    })
-  }, [agentSteps, completedIds, confirmed, questions, recommendedIds, request, summary])
+  useEffect(() => {
+    initialResponseRef.current = initialResponse
+    initialRecommendedIdsRef.current = recommendationQuestionIds(initialResponse)
+  }, [initialResponse])
 
-  const load = useCallback(async (forceConfirmed = false, preferredRange?: [number, number]) => {
-    if (!summary) return
+  useEffect(() => {
+    requestIdRef.current += 1
+    loadingRef.current = false
+    lastLoadArgsRef.current = { forceConfirmed: false }
+    setResponse(initialResponseRef.current ?? null)
+    setLoading(false)
+    setError(null)
+    setConfirmed(false)
+    setActiveRecommendation(null)
+    setSubmitting(false)
+    setPracticeResult(null)
+    setAttemptedInitialLoad(false)
+    setRecommendedIds(initialRecommendedIdsRef.current)
+    setCompletedIds([])
+  }, [initialResponseKey, runKey])
+
+  const load = useCallback(async (forceConfirmed = false, preferredRange?: [number, number]): Promise<boolean> => {
+    if (!summary || loadingRef.current) return false
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+    loadingRef.current = true
+    lastLoadArgsRef.current = { forceConfirmed, preferredRange }
     setLoading(true)
     setError(null)
     try {
@@ -96,26 +208,39 @@ export function PracticeRecommendations({
         preferredDifficultyMax: preferredRange?.[1],
       })
       const next = await loader(body)
+      if (requestIdRef.current !== requestId) return false
       setResponse(next)
       const ids = recommendationQuestionIds(next)
       setRecommendedIds((prev) => Array.from(new Set([...prev, ...ids])))
+      return true
     } catch (e) {
+      if (requestIdRef.current !== requestId) return false
       setError(e instanceof Error ? e.message : '获取练习推荐失败')
+      return false
     } finally {
-      setLoading(false)
+      if (requestIdRef.current === requestId) {
+        loadingRef.current = false
+        setLoading(false)
+      }
     }
   }, [agentSteps, completedIds, confirmed, loader, questions, recommendedIds, request, summary])
 
   useEffect(() => {
-    if (initialResponse || attemptedInitialLoad || !canLoad || response || loading || !baseRequest) return
+    if (initialResponse || attemptedInitialLoad || !canLoad || response || loading) return
     setAttemptedInitialLoad(true)
     void load(false)
-  }, [attemptedInitialLoad, baseRequest, canLoad, initialResponse, load, loading, response])
+  }, [attemptedInitialLoad, canLoad, initialResponse, load, loading, response])
+
+  const handleRetry = useCallback(() => {
+    const { forceConfirmed, preferredRange } = lastLoadArgsRef.current
+    void load(forceConfirmed, preferredRange)
+  }, [load])
 
   const handleConfirmAskFirst = useCallback(() => {
+    if (loading) return
     setConfirmed(true)
     void load(true)
-  }, [load])
+  }, [load, loading])
 
   const handleStart = useCallback((item: PracticeRecommendation) => {
     if (!item.question) return
@@ -125,7 +250,7 @@ export function PracticeRecommendations({
 
   const handleSubmit = useCallback(async (answer: string, steps: string[]) => {
     const questionId = activeRecommendation?.question_id
-    if (!questionId) return
+    if (questionId == null) return
     setSubmitting(true)
     setError(null)
     try {
@@ -144,11 +269,14 @@ export function PracticeRecommendations({
   }, [activeRecommendation, answerSubmitter])
 
   const handleNextAdaptive = useCallback(() => {
-    if (!practiceResult) return
-    setActiveRecommendation(null)
+    if (!practiceResult || loading) return
     const range = difficultyRangeFromPracticeResult(practiceResult)
-    void load(true, range)
-  }, [load, practiceResult])
+    void load(true, range).then((loaded) => {
+      if (!loaded) return
+      setActiveRecommendation(null)
+      setPracticeResult(null)
+    })
+  }, [load, loading, practiceResult])
 
   if (!summary || questions.length === 0) return null
 
@@ -158,10 +286,10 @@ export function PracticeRecommendations({
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Practice Loop</p>
           <h2 className="mt-1 text-lg font-semibold text-slate-950">
-            {response ? modeLabel(response) : '正在判断下一步练习'}
+            {response ? modeLabel(response) : error ? '练习推荐加载失败' : '正在判断下一步练习'}
           </h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            {response?.message ?? '系统正在根据本次批改结果判断是否适合推荐真实题库练习。'}
+            {response?.message ?? (error ? '推荐暂时没有加载成功，可以点击重试重新匹配题库。' : '系统正在根据本次批改结果判断是否适合推荐真实题库练习。')}
           </p>
         </div>
         {response?.match_confidence ? (
@@ -172,7 +300,20 @@ export function PracticeRecommendations({
       </div>
 
       {error ? (
-        <p className="mb-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <div
+          role="alert"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700"
+        >
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={loading || !canLoad}
+            className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? '正在重试...' : '重新获取推荐'}
+          </button>
+        </div>
       ) : null}
 
       {loading ? (
@@ -191,14 +332,16 @@ export function PracticeRecommendations({
             <button
               type="button"
               onClick={handleConfirmAskFirst}
-              className="rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              disabled={loading}
+              className="rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               给我 2-3 道类似题
             </button>
             <button
               type="button"
               onClick={() => setResponse({ ...response, recommendation_mode: 'none', message: '已保留本次批改反馈，暂不进入练习。' })}
-              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              disabled={loading}
+              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               暂时不用
             </button>
@@ -252,9 +395,10 @@ export function PracticeRecommendations({
                   <button
                     type="button"
                     onClick={handleNextAdaptive}
-                    className="mt-3 rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                    disabled={loading}
+                    className="mt-3 rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    调整下一题
+                    {loading ? '正在调整...' : '调整下一题'}
                   </button>
                 </div>
               </>
