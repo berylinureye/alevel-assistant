@@ -17,6 +17,18 @@ from api.practice_orchestrator import (
     normalise_paper_num,
     recommend_practice,
 )
+from questionbank.models import QuestionBankItem
+
+
+def _bank_question(question_id: int, *, topic: str = "quadratics", paper_num: int = 1) -> QuestionBankItem:
+    return QuestionBankItem(
+        id=question_id,
+        question_number=str(question_id),
+        question_text=f"Question {question_id}",
+        topic=topic,
+        difficulty=3,
+        paper_num=paper_num,
+    )
 
 
 def test_confirmed_past_paper_uses_auto_mode():
@@ -200,3 +212,148 @@ def test_query_recommendations_does_not_unscope_invalid_confirmed_paper(monkeypa
     )
 
     assert orchestrator._query_recommendations(req, "quadratics") == []
+
+
+def test_query_recommendations_honors_count_six_with_default_slots(monkeypatch):
+    class FakeConnection:
+        def close(self):
+            pass
+
+    pools = {
+        (1, 2): [_bank_question(1), _bank_question(2)],
+        (3, 3): [_bank_question(3), _bank_question(4)],
+        (4, 5): [_bank_question(5), _bank_question(6)],
+    }
+
+    def fake_get_random_questions(_conn, *, difficulty_min, difficulty_max, count, exclude_ids, **_kwargs):
+        available = [
+            question
+            for question in pools[(difficulty_min, difficulty_max)]
+            if question.id not in set(exclude_ids or [])
+        ]
+        return available[:count], len(available)
+
+    import api.practice_orchestrator as orchestrator
+
+    monkeypatch.setattr(orchestrator, "ensure_db", lambda: FakeConnection())
+    monkeypatch.setattr(orchestrator, "get_random_questions", fake_get_random_questions)
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="custom_homework",
+            paper_num=None,
+            match_confidence="medium",
+            confirmed_by_user=True,
+            grading_route="open_ai_grading",
+        ),
+        priority_topics=[{"topic": "Quadratics"}],
+        count=6,
+    )
+
+    recommendations = orchestrator._query_recommendations(req, "quadratics")
+
+    assert [rec.question_id for rec in recommendations] == [1, 3, 5, 2, 4, 6]
+
+
+def test_query_recommendations_honors_adaptive_count(monkeypatch):
+    class FakeConnection:
+        def close(self):
+            pass
+
+    questions = [_bank_question(question_id) for question_id in range(10, 15)]
+
+    def fake_get_random_questions(_conn, *, difficulty_min, difficulty_max, count, exclude_ids, **_kwargs):
+        assert difficulty_min == 2
+        assert difficulty_max == 4
+        available = [question for question in questions if question.id not in set(exclude_ids or [])]
+        return available[:count], len(available)
+
+    import api.practice_orchestrator as orchestrator
+
+    monkeypatch.setattr(orchestrator, "ensure_db", lambda: FakeConnection())
+    monkeypatch.setattr(orchestrator, "get_random_questions", fake_get_random_questions)
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="custom_homework",
+            paper_num=None,
+            match_confidence="medium",
+            confirmed_by_user=True,
+            grading_route="open_ai_grading",
+        ),
+        priority_topics=[{"topic": "Quadratics"}],
+        preferred_difficulty_min=2,
+        preferred_difficulty_max=4,
+        count=4,
+    )
+
+    recommendations = orchestrator._query_recommendations(req, "quadratics")
+
+    assert [rec.question_id for rec in recommendations] == [10, 11, 12, 13]
+    assert all(rec.difficulty == "consolidation" for rec in recommendations)
+
+
+def test_query_recommendations_scopes_confirmed_paper(monkeypatch):
+    class FakeConnection:
+        def close(self):
+            pass
+
+    paper_nums_seen: list[list[int] | None] = []
+
+    def fake_get_random_questions(_conn, *, paper_nums, **_kwargs):
+        paper_nums_seen.append(paper_nums)
+        return [], 0
+
+    import api.practice_orchestrator as orchestrator
+
+    monkeypatch.setattr(orchestrator, "ensure_db", lambda: FakeConnection())
+    monkeypatch.setattr(orchestrator, "get_random_questions", fake_get_random_questions)
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="past_paper",
+            paper_num=2,
+            match_confidence="high",
+            confirmed_by_user=True,
+            grading_route="past_paper_mark_scheme",
+        ),
+        priority_topics=[{"topic": "Quadratics"}],
+        count=1,
+    )
+
+    orchestrator._query_recommendations(req, "quadratics")
+
+    assert paper_nums_seen
+    assert all(paper_nums == [2] for paper_nums in paper_nums_seen)
+
+
+def test_query_recommendations_accumulates_exclude_ids_between_calls(monkeypatch):
+    class FakeConnection:
+        def close(self):
+            pass
+
+    calls: list[list[int]] = []
+    questions_by_call = [_bank_question(1), _bank_question(2), _bank_question(3)]
+
+    def fake_get_random_questions(_conn, *, exclude_ids, **_kwargs):
+        calls.append(list(exclude_ids or []))
+        return [questions_by_call[len(calls) - 1]], 1
+
+    import api.practice_orchestrator as orchestrator
+
+    monkeypatch.setattr(orchestrator, "ensure_db", lambda: FakeConnection())
+    monkeypatch.setattr(orchestrator, "get_random_questions", fake_get_random_questions)
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="custom_homework",
+            paper_num=None,
+            match_confidence="medium",
+            confirmed_by_user=True,
+            grading_route="open_ai_grading",
+        ),
+        priority_topics=[{"topic": "Quadratics"}],
+        exclude_ids=[99],
+        count=3,
+    )
+
+    recommendations = orchestrator._query_recommendations(req, "quadratics")
+
+    assert [rec.question_id for rec in recommendations] == [1, 2, 3]
+    assert calls == [[99], [99, 1], [99, 1, 2]]

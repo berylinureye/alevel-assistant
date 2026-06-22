@@ -220,6 +220,44 @@ def _reason_for_slot(title: str, topic: str, scoped_to_paper: bool) -> str:
     return f"根据刚刚的作答结果，继续练 {topic}。"
 
 
+def _append_recommendations(
+    recommendations: list[PracticeRecommendation],
+    *,
+    questions: list[QuestionBankItem],
+    req_count: int,
+    slot: str,
+    title: str,
+    topic: str,
+    scoped_to_paper: bool,
+    exclude_ids: list[int],
+    selected_ids: set[int],
+) -> None:
+    for question in questions:
+        if len(recommendations) >= req_count:
+            break
+        if question.id is not None:
+            if question.id in selected_ids:
+                continue
+            selected_ids.add(question.id)
+            exclude_ids.append(question.id)
+        recommendations.append(
+            PracticeRecommendation(
+                id=f"{slot}-{question.id}",
+                question_id=question.id,
+                topic=question.topic,
+                subtopic=question.subtopic,
+                difficulty=slot if slot in {"foundation", "consolidation", "exam-style"} else "consolidation",
+                title=title,
+                reason=_reason_for_slot(title, topic, scoped_to_paper),
+                source_label="同 paper · 同 topic" if scoped_to_paper else "同 topic · 题库匹配",
+                trigger="auto",
+                paper_num=question.paper_num,
+                requires_confirmation=False,
+                question=question,
+            )
+        )
+
+
 def _query_recommendations(req: PracticeRecommendationRequest, topic: str) -> list[PracticeRecommendation]:
     if _has_invalid_explicit_paper(req.context.paper_num):
         return []
@@ -232,41 +270,65 @@ def _query_recommendations(req: PracticeRecommendationRequest, topic: str) -> li
     )
     paper_nums = [paper_num] if scoped_to_paper and paper_num else None
     exclude_ids = list(req.exclude_ids)
+    selected_ids = set(exclude_ids)
     recommendations: list[PracticeRecommendation] = []
+    slots = _difficulty_slots(req)
 
     conn = ensure_db()
     try:
-        for slot, title, difficulty_min, difficulty_max in _difficulty_slots(req):
+        if req.preferred_difficulty_min and req.preferred_difficulty_max:
+            slot, title, difficulty_min, difficulty_max = slots[0]
             questions, _total = get_random_questions(
                 conn,
                 topics=[topic],
                 difficulty_min=difficulty_min,
                 difficulty_max=difficulty_max,
-                count=1,
+                count=req.count,
                 paper_nums=paper_nums,
                 exclude_ids=exclude_ids,
             )
-            if not questions:
-                continue
-            question = questions[0]
-            if question.id is not None:
-                exclude_ids.append(question.id)
-            recommendations.append(
-                PracticeRecommendation(
-                    id=f"{slot}-{question.id}",
-                    question_id=question.id,
-                    topic=question.topic,
-                    subtopic=question.subtopic,
-                    difficulty=slot if slot in {"foundation", "consolidation", "exam-style"} else "consolidation",
-                    title=title,
-                    reason=_reason_for_slot(title, topic, scoped_to_paper),
-                    source_label="同 paper · 同 topic" if scoped_to_paper else "同 topic · 题库匹配",
-                    trigger="auto",
-                    paper_num=question.paper_num,
-                    requires_confirmation=False,
-                    question=question,
-                )
+            _append_recommendations(
+                recommendations,
+                questions=questions,
+                req_count=req.count,
+                slot=slot,
+                title=title,
+                topic=topic,
+                scoped_to_paper=scoped_to_paper,
+                exclude_ids=exclude_ids,
+                selected_ids=selected_ids,
             )
+            return recommendations
+
+        while len(recommendations) < req.count:
+            added_this_round = False
+            for slot, title, difficulty_min, difficulty_max in slots:
+                if len(recommendations) >= req.count:
+                    break
+                before_count = len(recommendations)
+                questions, _total = get_random_questions(
+                    conn,
+                    topics=[topic],
+                    difficulty_min=difficulty_min,
+                    difficulty_max=difficulty_max,
+                    count=1,
+                    paper_nums=paper_nums,
+                    exclude_ids=exclude_ids,
+                )
+                _append_recommendations(
+                    recommendations,
+                    questions=questions,
+                    req_count=req.count,
+                    slot=slot,
+                    title=title,
+                    topic=topic,
+                    scoped_to_paper=scoped_to_paper,
+                    exclude_ids=exclude_ids,
+                    selected_ids=selected_ids,
+                )
+                added_this_round = added_this_round or len(recommendations) > before_count
+            if not added_this_round:
+                break
     finally:
         conn.close()
 
