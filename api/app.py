@@ -31,6 +31,7 @@ from pathlib import Path
 from api.routes import router
 from api.qb_routes import qb_router
 from api.feedback import feedback_router
+from api.practice_orchestrator import practice_orchestrator_router
 
 
 @asynccontextmanager
@@ -63,6 +64,7 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(qb_router)
+app.include_router(practice_orchestrator_router)
 app.include_router(feedback_router)
 
 # /showcase · 面试官 demo 落地页 (主路径)
