@@ -152,14 +152,18 @@ export function PracticeRecommendations({
   const initialRecommendedIdsRef = useRef(recommendationQuestionIds(initialResponse))
   const requestIdRef = useRef(0)
   const loadingRef = useRef(false)
+  const submitRequestIdRef = useRef(0)
+  const submittingRef = useRef(false)
+  const activeQuestionIdRef = useRef<number | null>(null)
   const lastLoadArgsRef = useRef<LoadArgs>({ forceConfirmed: false })
 
   const [response, setResponse] = useState<PracticeRecommendationResponse | null>(initialResponse ?? null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [activeRecommendation, setActiveRecommendation] = useState<PracticeRecommendation | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [practiceResult, setPracticeResult] = useState<SubmitAnswerResponse | null>(null)
   const [attemptedInitialLoad, setAttemptedInitialLoad] = useState(false)
   const [recommendedIds, setRecommendedIds] = useState<number[]>(() => recommendationQuestionIds(initialResponse))
@@ -174,19 +178,27 @@ export function PracticeRecommendations({
 
   useEffect(() => {
     requestIdRef.current += 1
+    submitRequestIdRef.current += 1
     loadingRef.current = false
+    submittingRef.current = false
+    activeQuestionIdRef.current = null
     lastLoadArgsRef.current = { forceConfirmed: false }
     setResponse(initialResponseRef.current ?? null)
     setLoading(false)
-    setError(null)
+    setLoadError(null)
     setConfirmed(false)
     setActiveRecommendation(null)
     setSubmitting(false)
+    setSubmitError(null)
     setPracticeResult(null)
     setAttemptedInitialLoad(false)
     setRecommendedIds(initialRecommendedIdsRef.current)
     setCompletedIds([])
   }, [initialResponseKey, runKey])
+
+  useEffect(() => {
+    activeQuestionIdRef.current = activeRecommendation?.question_id ?? null
+  }, [activeRecommendation])
 
   const load = useCallback(async (forceConfirmed = false, preferredRange?: [number, number]): Promise<boolean> => {
     if (!summary || loadingRef.current) return false
@@ -195,7 +207,7 @@ export function PracticeRecommendations({
     loadingRef.current = true
     lastLoadArgsRef.current = { forceConfirmed, preferredRange }
     setLoading(true)
-    setError(null)
+    setLoadError(null)
     try {
       const body = buildPracticeRequest({
         request,
@@ -215,7 +227,7 @@ export function PracticeRecommendations({
       return true
     } catch (e) {
       if (requestIdRef.current !== requestId) return false
-      setError(e instanceof Error ? e.message : '获取练习推荐失败')
+      setLoadError(e instanceof Error ? e.message : '获取练习推荐失败')
       return false
     } finally {
       if (requestIdRef.current === requestId) {
@@ -243,28 +255,43 @@ export function PracticeRecommendations({
   }, [load, loading])
 
   const handleStart = useCallback((item: PracticeRecommendation) => {
-    if (!item.question) return
+    if (!item.question || item.question_id == null || submittingRef.current) return
+    submitRequestIdRef.current += 1
+    activeQuestionIdRef.current = item.question_id
+    setSubmitError(null)
     setPracticeResult(null)
     setActiveRecommendation(item)
   }, [])
 
   const handleSubmit = useCallback(async (answer: string, steps: string[]) => {
     const questionId = activeRecommendation?.question_id
-    if (questionId == null) return
+    if (questionId == null || submittingRef.current) return
+    const submitRequestId = submitRequestIdRef.current + 1
+    submitRequestIdRef.current = submitRequestId
+    submittingRef.current = true
     setSubmitting(true)
-    setError(null)
+    setSubmitError(null)
     try {
       const result = await answerSubmitter({
         question_id: questionId,
         student_answer: answer,
         working_steps: steps,
       })
+      if (submitRequestIdRef.current !== submitRequestId || activeQuestionIdRef.current !== questionId) return
+      if (result.question_id !== questionId) {
+        setSubmitError('提交结果与当前题目不匹配，请重新提交。')
+        return
+      }
       setPracticeResult(result)
       setCompletedIds((prev) => Array.from(new Set([...prev, questionId])))
     } catch (e) {
-      setError(e instanceof Error ? e.message : '提交练习答案失败')
+      if (submitRequestIdRef.current !== submitRequestId || activeQuestionIdRef.current !== questionId) return
+      setSubmitError(e instanceof Error ? e.message : '提交练习答案失败')
     } finally {
-      setSubmitting(false)
+      if (submitRequestIdRef.current === submitRequestId) {
+        submittingRef.current = false
+        setSubmitting(false)
+      }
     }
   }, [activeRecommendation, answerSubmitter])
 
@@ -273,7 +300,9 @@ export function PracticeRecommendations({
     const range = difficultyRangeFromPracticeResult(practiceResult)
     void load(true, range).then((loaded) => {
       if (!loaded) return
+      activeQuestionIdRef.current = null
       setActiveRecommendation(null)
+      setSubmitError(null)
       setPracticeResult(null)
     })
   }, [load, loading, practiceResult])
@@ -286,10 +315,10 @@ export function PracticeRecommendations({
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Practice Loop</p>
           <h2 className="mt-1 text-lg font-semibold text-slate-950">
-            {response ? modeLabel(response) : error ? '练习推荐加载失败' : '正在判断下一步练习'}
+            {response ? modeLabel(response) : loadError ? '练习推荐加载失败' : '正在判断下一步练习'}
           </h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            {response?.message ?? (error ? '推荐暂时没有加载成功，可以点击重试重新匹配题库。' : '系统正在根据本次批改结果判断是否适合推荐真实题库练习。')}
+            {response?.message ?? (loadError ? '推荐暂时没有加载成功，可以点击重试重新匹配题库。' : '系统正在根据本次批改结果判断是否适合推荐真实题库练习。')}
           </p>
         </div>
         {response?.match_confidence ? (
@@ -299,12 +328,12 @@ export function PracticeRecommendations({
         ) : null}
       </div>
 
-      {error ? (
+      {loadError ? (
         <div
           role="alert"
           className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700"
         >
-          <p>{error}</p>
+          <p>{loadError}</p>
           <button
             type="button"
             onClick={handleRetry}
@@ -372,7 +401,7 @@ export function PracticeRecommendations({
               <button
                 type="button"
                 onClick={() => handleStart(item)}
-                disabled={!item.question}
+                disabled={!item.question || item.question_id == null || submitting}
                 className="mt-4 w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 开始练习
@@ -383,10 +412,18 @@ export function PracticeRecommendations({
       ) : null}
 
       {activeRecommendation?.question ? (
-        <div className="mt-5 border-t border-slate-100 pt-5">
+        <div key={activeRecommendation.question_id ?? activeRecommendation.id} className="mt-5 border-t border-slate-100 pt-5">
           <PracticeQuestionCard question={activeRecommendation.question} index={0} total={1}>
+            {submitError ? (
+              <p
+                role="alert"
+                className="mb-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
+                {submitError}
+              </p>
+            ) : null}
             {!practiceResult ? (
-              <AnswerInput onSubmit={handleSubmit} submitting={submitting} disabled={false} />
+              <AnswerInput onSubmit={handleSubmit} submitting={submitting} disabled={submitting} />
             ) : (
               <>
                 <PracticeResult result={practiceResult} />
