@@ -40,6 +40,12 @@ function nextActionText(result: SubmitAnswerResponse): string {
   return '先回看讲解，再做一道更基础的同主题题。'
 }
 
+function recommendationQuestionIds(response: PracticeRecommendationResponse | undefined): number[] {
+  return response?.recommendations
+    .map((item) => item.question_id)
+    .filter((id): id is number => typeof id === 'number') ?? []
+}
+
 export function PracticeRecommendations({
   request,
   agentSteps,
@@ -56,7 +62,8 @@ export function PracticeRecommendations({
   const [activeRecommendation, setActiveRecommendation] = useState<PracticeRecommendation | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [practiceResult, setPracticeResult] = useState<SubmitAnswerResponse | null>(null)
-  const [recommendedIds, setRecommendedIds] = useState<number[]>([])
+  const [attemptedInitialLoad, setAttemptedInitialLoad] = useState(false)
+  const [recommendedIds, setRecommendedIds] = useState<number[]>(() => recommendationQuestionIds(initialResponse))
   const [completedIds, setCompletedIds] = useState<number[]>([])
 
   const canLoad = summary !== null && questions.length > 0
@@ -90,9 +97,7 @@ export function PracticeRecommendations({
       })
       const next = await loader(body)
       setResponse(next)
-      const ids = next.recommendations
-        .map((item) => item.question_id)
-        .filter((id): id is number => typeof id === 'number')
+      const ids = recommendationQuestionIds(next)
       setRecommendedIds((prev) => Array.from(new Set([...prev, ...ids])))
     } catch (e) {
       setError(e instanceof Error ? e.message : '获取练习推荐失败')
@@ -102,9 +107,10 @@ export function PracticeRecommendations({
   }, [agentSteps, completedIds, confirmed, loader, questions, recommendedIds, request, summary])
 
   useEffect(() => {
-    if (initialResponse || !canLoad || response || loading || !baseRequest) return
+    if (initialResponse || attemptedInitialLoad || !canLoad || response || loading || !baseRequest) return
+    setAttemptedInitialLoad(true)
     void load(false)
-  }, [baseRequest, canLoad, initialResponse, load, loading, response])
+  }, [attemptedInitialLoad, baseRequest, canLoad, initialResponse, load, loading, response])
 
   const handleConfirmAskFirst = useCallback(() => {
     setConfirmed(true)
