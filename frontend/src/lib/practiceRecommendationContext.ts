@@ -26,6 +26,14 @@ function paperNumFromComponentToken(token: string): 1 | 2 | 3 | 4 | 5 | 6 | null
   return match ? (Number(match[1]) as 1 | 2 | 3 | 4 | 5 | 6) : null
 }
 
+function isSessionToken(token: string | undefined): boolean {
+  return token === 'M' || token === 'S' || token === 'W'
+}
+
+function isYearToken(token: string | undefined): boolean {
+  return /^\d{2}(\d{2})?$/.test(token ?? '')
+}
+
 function parsePaperNumFromPaperCode(value?: string): 1 | 2 | 3 | 4 | 5 | 6 | null {
   const text = (value ?? '').trim()
   if (!text) return null
@@ -40,7 +48,17 @@ function parsePaperNumFromPaperCode(value?: string): 1 | 2 | 3 | 4 | 5 | 6 | nul
 
   const subjectIndex = tokens.indexOf('9709')
   if (subjectIndex >= 0) {
-    return paperNumFromComponentToken(tokens[subjectIndex + 1] ?? '')
+    const directPaper = paperNumFromComponentToken(tokens[subjectIndex + 1] ?? '')
+    if (directPaper) return directPaper
+
+    if (isSessionToken(tokens[subjectIndex + 1]) && isYearToken(tokens[subjectIndex + 2])) {
+      const maybeFileType = tokens[subjectIndex + 3]
+      const componentToken =
+        maybeFileType === 'QP' || maybeFileType === 'MS'
+          ? tokens[subjectIndex + 4]
+          : maybeFileType
+      return paperNumFromComponentToken(componentToken ?? '')
+    }
   }
 
   return null
