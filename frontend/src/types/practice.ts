@@ -105,3 +105,95 @@ export interface PracticeConfig {
   difficultyMax: number
   count: number
 }
+
+export type PracticeRecommendationMode = 'auto' | 'ask_first' | 'none'
+export type PracticeRecommendationTrigger = 'auto' | 'ask_first' | 'unavailable'
+export type PracticeRecommendationDifficulty = 'foundation' | 'consolidation' | 'exam-style'
+export type PracticeUploadIntent =
+  | 'past_paper'
+  | 'custom_homework'
+  | 'unknown'
+  | 'full_past_paper_pdf'
+  | 'partial_past_paper_pages'
+  | 'answer_pages_only'
+  | 'single_question_photo'
+
+export interface PracticeRecommendationContext {
+  upload_intent: PracticeUploadIntent
+  paper_num?: 1 | 2 | 3 | 4 | 5 | 6 | null
+  question_number?: string | null
+  match_confidence?: 'high' | 'medium' | 'low' | null
+  confirmed_by_user: boolean
+  grading_route?: 'past_paper_mark_scheme' | 'open_ai_grading' | null
+  recommendation_mode?: PracticeRecommendationMode
+}
+
+export interface PracticeRecommendationSourceQuestion {
+  question_number: string
+  score: number
+  full_score: number
+  is_correct: boolean
+  unanswered: boolean
+  error_type: string | null
+  knowledge_tags: string[]
+  needs_review: boolean
+}
+
+export interface PracticeRecommendationPriorityTopic {
+  topic: string
+  subtopic?: string | null
+  chapter?: string | null
+  error_count?: number
+}
+
+export interface PracticeRecommendationRequest {
+  context: PracticeRecommendationContext
+  priority_topics: PracticeRecommendationPriorityTopic[]
+  knowledge_tags_summary: Record<string, number>
+  questions: PracticeRecommendationSourceQuestion[]
+  exclude_ids: number[]
+  preferred_difficulty_min?: number
+  preferred_difficulty_max?: number
+  count?: number
+}
+
+export interface PracticeRecommendation {
+  id: string
+  question_id: number | null
+  topic: string
+  subtopic?: string | null
+  difficulty: PracticeRecommendationDifficulty
+  title: string
+  reason: string
+  source_label?: string
+  unavailable?: boolean
+  trigger: PracticeRecommendationTrigger
+  paper_num?: 1 | 2 | 3 | 4 | 5 | 6 | null
+  requires_confirmation?: boolean
+  question?: QuestionBankItem | null
+}
+
+export interface PracticeRecommendationResponse {
+  status: string
+  recommendation_mode: PracticeRecommendationMode
+  message: string
+  detected_topic?: string | null
+  detected_subtopic?: string | null
+  paper_num?: 1 | 2 | 3 | 4 | 5 | 6 | null
+  match_confidence?: 'high' | 'medium' | 'low' | null
+  recommendations: PracticeRecommendation[]
+}
+
+export interface PracticeLoopState {
+  weak_topics: string[]
+  recommended_ids: number[]
+  completed_ids: number[]
+  current_question_id?: number
+  last_result?: {
+    question_id: number
+    is_correct: boolean
+    score: number
+    full_score: number
+    error_type: string | null
+  }
+}

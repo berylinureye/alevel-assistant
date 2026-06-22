@@ -88,6 +88,8 @@ export type UploadIntent =
   | 'past_paper'
   | 'custom_homework'
   | 'unknown'
+  | 'full_past_paper_pdf'
+  | 'partial_past_paper_pages'
   | 'answer_pages_only'
 
 export interface ApiError {
