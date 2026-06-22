@@ -21,12 +21,29 @@ function toPracticeIntent(intent: UploadIntent | undefined): PracticeUploadInten
   return intent ? PRACTICE_INTENT_BY_UPLOAD_INTENT[intent] ?? 'unknown' : 'unknown'
 }
 
+function paperNumFromComponentToken(token: string): 1 | 2 | 3 | 4 | 5 | 6 | null {
+  const match = token.match(/^([1-6])[1-3]$/)
+  return match ? (Number(match[1]) as 1 | 2 | 3 | 4 | 5 | 6) : null
+}
+
 function parsePaperNumFromPaperCode(value?: string): 1 | 2 | 3 | 4 | 5 | 6 | null {
   const text = (value ?? '').trim()
-  const match = text.match(/(?:^|\D)([1-6])[1-3](?:\D|$)/)
-  if (!match) return null
-  const paper = Number(match[1])
-  return paper >= 1 && paper <= 6 ? (paper as 1 | 2 | 3 | 4 | 5 | 6) : null
+  if (!text) return null
+
+  const tokens: string[] = text.toUpperCase().match(/[A-Z]+|\d+/g) ?? []
+  for (let i = 0; i < tokens.length - 1; i += 1) {
+    if (tokens[i] === 'QP' || tokens[i] === 'MS') {
+      const paper = paperNumFromComponentToken(tokens[i + 1])
+      if (paper) return paper
+    }
+  }
+
+  const subjectIndex = tokens.indexOf('9709')
+  if (subjectIndex >= 0) {
+    return paperNumFromComponentToken(tokens[subjectIndex + 1] ?? '')
+  }
+
+  return null
 }
 
 function getResolutionStep(agentSteps: AgentStepData[]): AgentStepData | null {
