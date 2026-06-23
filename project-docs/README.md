@@ -12,6 +12,8 @@
 | 4 | [Agent 驱动开发与提效系统](../docs/agent-driven-development.md) | 如何把 PRD、验收标准、任务记忆、子 agent 分工变成开发 harness |
 | 5 | [Superpowers 插件使用说明](../docs/superpowers-plugin-workflow.md) | Superpowers 如何把 brainstorm、spec、plan、subagent、review、verification 固化成流程 |
 | 6 | [开发路线](../docs/ROADMAP.md) | 当前 main 已经包含什么，下一阶段要补什么 |
+| 7 | [开源贡献说明](../CONTRIBUTING.md) | 如何本地运行、验证、提交贡献 |
+| 8 | [安全说明](../SECURITY.md) | 公开仓库和部署时需要注意的密钥、数据和接口风险 |
 
 ## 一句话项目介绍
 
@@ -104,3 +106,4 @@ agent_workflow/
 2. [规则校验与确定性兜底](../docs/rule-based-verification.md)
 3. [Agent 驱动开发与提效系统](../docs/agent-driven-development.md)
 4. [Superpowers 插件使用说明](../docs/superpowers-plugin-workflow.md)
+5. [开源贡献说明](../CONTRIBUTING.md)

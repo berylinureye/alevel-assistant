@@ -126,6 +126,17 @@ node ../scripts/visual_acceptance.mjs --path /__practice-recommendations-replay 
 - Large PDF Mode 已有规格和部分后端能力，完整前端选页流程仍是后续重点。
 - 原始 past paper PDF 不适合直接放入普通 Git 历史，见 [docs/DATA.md](docs/DATA.md)。
 
+## 开源说明
+
+This repository is open sourced under the [MIT License](LICENSE).
+
+Open-source hygiene:
+
+- Real API keys and deployment secrets must live in `.env`, never in Git.
+- Raw third-party exam PDFs are excluded from normal Git history.
+- The included SQLite data is for local demos and development; check redistribution rights before publishing additional paper corpora.
+- Hosted deployments should review [SECURITY.md](SECURITY.md), especially debug endpoints, CORS, upload handling, and admin tokens.
+
 ## 进一步阅读
 
 - [项目展示文档入口](project-docs/README.md)
@@ -139,3 +150,5 @@ node ../scripts/visual_acceptance.mjs --path /__practice-recommendations-replay 
 - [部署指南](DEPLOY.md)
 - [题库系统方案](docs/question-bank-proposal.md)
 - [长期 Agent 工作流](agent_workflow/README.md)
+- [贡献说明](CONTRIBUTING.md)
+- [安全说明](SECURITY.md)
