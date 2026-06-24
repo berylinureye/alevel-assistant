@@ -33,6 +33,75 @@ body {
   color: #0f172a;
 }
 
+@keyframes landing-title-sheen {
+  0% {
+    background-position: 135% 50%;
+  }
+  62%,
+  100% {
+    background-position: -135% 50%;
+  }
+}
+
+@keyframes landing-button-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.landing-shine-title {
+  color: transparent;
+  background:
+    linear-gradient(
+      100deg,
+      #111111 0%,
+      #111111 37%,
+      #f7f7f7 48%,
+      #8b8b8b 54%,
+      #111111 68%,
+      #111111 100%
+    );
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: landing-title-sheen 8.5s ease-in-out infinite;
+}
+
+.landing-start-button {
+  animation: landing-button-float 2.8s ease-in-out infinite;
+}
+
+.landing-start-button:hover,
+.landing-start-button:focus-visible {
+  animation-play-state: paused;
+}
+
+.upload-action-button {
+  will-change: transform;
+}
+
+.upload-action-button:hover {
+  transform: translateY(-0.25rem) scale(1.1);
+}
+
+.upload-action-button:active {
+  transform: scale(1.1);
+}
+
+@media (hover: none) {
+  .upload-action-button:hover {
+    transform: none;
+  }
+
+  .upload-action-button:active {
+    transform: scale(1.1);
+  }
+}
+
 /* Landing page design tokens — used via Tailwind's arbitrary-value syntax,
    e.g. bg-[color:var(--color-ink-950)] or text-[color:var(--color-amber)]. */
 @theme {
@@ -47,12 +116,12 @@ body {
   --color-ink-200: #E2E8F0;
   --color-ink-100: #F1F5F9;
   --color-paper: #FAFAF9;
-  --color-brand: #2563EB;
-  --color-brand-hover: #1D4ED8;
-  --color-brand-soft: #EFF6FF;
-  --color-amber: #F59E0B;
-  --color-amber-hover: #D97706;
-  --color-amber-soft: #FEF3C7;
+  --color-brand: #111827;
+  --color-brand-hover: #000000;
+  --color-brand-soft: #F3F4F6;
+  --color-amber: #111827;
+  --color-amber-hover: #000000;
+  --color-amber-soft: #F3F4F6;
 }
 
 /* Used by landing page sections for scroll-triggered reveal. */
@@ -69,6 +138,11 @@ body {
   transform: translateY(0);
 }
 @media (prefers-reduced-motion: reduce) {
+  .landing-shine-title,
+  .landing-start-button {
+    animation: none;
+  }
+
   .lp-reveal {
     opacity: 1;
     transform: none;

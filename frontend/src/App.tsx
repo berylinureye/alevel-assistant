@@ -29,6 +29,8 @@ const TAB_LABELS: Array<{ key: AppTab; label: string }> = [
   { key: 'practice', label: '刷题' },
 ]
 
+const WORKBENCH_HASH = '#workbench'
+
 function getImageUrlForQuestion(questionNumber: string, imageUrls: string[]): string | undefined {
   if (imageUrls.length === 0) return undefined
   if (imageUrls.length === 1) return imageUrls[0]
@@ -42,25 +44,25 @@ function getImageUrlForQuestion(questionNumber: string, imageUrls: string[]): st
 
 function WorkflowPreview() {
   const steps = [
-    { label: '识别卷子', text: '先判断是否来自 Past Paper，能匹配就读取本地题库上下文' },
-    { label: '对照规则', text: '优先按 mark scheme 路由；信息不足时回退开放批改' },
-    { label: '学习诊断', text: '输出每题得分、错因、复习重点和下一步练习' },
+    { label: '识别材料', text: '先判断是真题、作业，还是只有答案页' },
+    { label: '选择依据', text: '能匹配 mark scheme 时优先按规则批改' },
+    { label: '生成反馈', text: '给出得分、错因和下一步练习' },
   ]
 
   return (
     <aside className="space-y-4 rounded-lg border border-slate-200 bg-white/85 p-5 shadow-sm">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Learning Workflow</p>
-        <h2 className="mt-2 text-lg font-semibold text-slate-950">不是黑盒批改，而是先找依据</h2>
+        <p className="text-xs font-semibold text-slate-500">批改流程</p>
+        <h2 className="mt-2 text-lg font-semibold text-slate-950">先找依据，再给反馈</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          上传后你会看到系统如何识别上传内容、选择批改路径，并把结果转成可执行的学习建议。
+          系统会先判断材料，再把批改结果整理成报告、错因和练习建议。
         </p>
       </div>
 
       <ol className="space-y-3">
         {steps.map((step, idx) => (
           <li key={step.label} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-50 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-950 text-xs font-semibold text-white ring-1 ring-slate-950">
               {idx + 1}
             </div>
             <div className="min-w-0 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
@@ -88,8 +90,72 @@ function WorkflowPreview() {
   )
 }
 
+function ClickPointerIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M8 3.5v3" strokeLinecap="round" />
+      <path d="M3.5 8h3" strokeLinecap="round" />
+      <path d="m5.3 5.3 2.1 2.1" strokeLinecap="round" />
+      <path d="M13 4.5 19.5 20l-5.4-2.6-2.5 4.8-3.7-1.9 2.5-4.8-5-1.7L13 4.5Z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function StartLanding({ onStart }: { onStart: () => void }) {
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-white px-5 py-8 text-slate-950 sm:px-8">
+      <section className="flex min-h-[calc(100vh-4rem)] flex-col">
+        <div className="flex flex-1 items-center justify-center pb-24">
+          <div className="text-center">
+            <h1 className="landing-shine-title select-none text-5xl font-semibold sm:text-7xl lg:text-8xl">
+              A-Level Assistant
+            </h1>
+            <p className="mx-auto mt-5 max-w-2xl text-sm font-medium leading-6 text-slate-500 sm:text-base">
+              让独立学习变成最稳的提分工具，把考季前的每次作业都变成可执行的订正和练习。
+            </p>
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-3xl pb-20 text-center sm:pb-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Product positioning
+          </p>
+          <p className="mx-auto mt-3 max-w-2xl text-pretty text-sm leading-7 text-slate-600 sm:text-base">
+            从上传作业到订正练习，A-Level Assistant 把每一次批改整理成可执行的提分路径。
+          </p>
+          <div className="mt-6 grid gap-5 border-t border-slate-200 pt-5 text-left sm:grid-cols-3">
+            {[
+              ['上传识别', '支持图片、拍照和 PDF，自动识别作业、试卷与答题内容。'],
+              ['批改讲解', '逐题批改、打分，并解释扣分原因与关键知识点。'],
+              ['闭环练习', '根据错因生成类似题型，帮助你把订正转化成巩固。'],
+            ].map(([title, text]) => (
+              <div key={title}>
+                <p className="text-sm font-semibold text-slate-950">{title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onStart}
+          className="landing-start-button fixed bottom-5 right-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/25 bg-[#151515] px-5 text-sm font-medium text-white shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:bg-black focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 focus:ring-offset-white sm:bottom-7 sm:right-7"
+          aria-label="点我开始上传作业"
+        >
+          点我开始上传作业
+          <ClickPointerIcon />
+        </button>
+      </section>
+    </main>
+  )
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('grading')
+  const [routeHash, setRouteHash] = useState(() =>
+    typeof window === 'undefined' ? '' : window.location.hash,
+  )
   const [pendingUploadFiles, setPendingUploadFiles] = useState<File[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -127,11 +193,20 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    const syncRouteHash = () => setRouteHash(window.location.hash)
+    syncRouteHash()
+    window.addEventListener('hashchange', syncRouteHash)
+    return () => window.removeEventListener('hashchange', syncRouteHash)
+  }, [])
+
   // Pick up files passed through from the landing page CTA.
   useEffect(() => {
     const files = consumePendingUpload()
     if (files.length > 0) {
       queueMicrotask(() => {
+        window.history.replaceState(null, '', WORKBENCH_HASH)
+        setRouteHash(WORKBENCH_HASH)
         setPendingUploadFiles(files)
         setActiveTab('grading')
       })
@@ -407,9 +482,21 @@ export default function App() {
   }, [])
 
   const showSummaryBlock = summary !== null
+  const currentHash = typeof window === 'undefined' ? routeHash : window.location.hash
+  const isWorkbenchRoute = currentHash === WORKBENCH_HASH
+
+  const handleStartUpload = useCallback(() => {
+    window.history.pushState(null, '', WORKBENCH_HASH)
+    setRouteHash(WORKBENCH_HASH)
+    setActiveTab('grading')
+  }, [])
+
+  if (!isWorkbenchRoute) {
+    return <StartLanding onStart={handleStartUpload} />
+  }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,#eff6ff_0,#f8fafc_34%,#f6f7f9_100%)] px-4 py-5 text-slate-950 sm:px-6 lg:px-8">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 px-4 py-5 text-slate-950 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -421,7 +508,7 @@ export default function App() {
             onClick={() => setActiveTab('profile')}
             className={`inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition ${
               activeTab === 'profile'
-                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                ? 'border-slate-950 bg-slate-950 text-white'
                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
             }`}
             aria-label="个人"
