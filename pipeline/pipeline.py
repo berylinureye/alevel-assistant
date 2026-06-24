@@ -6,7 +6,7 @@ import os
 import queue
 import re
 from collections.abc import Generator
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError, as_completed
 from typing import Any
 
 _log = logging.getLogger("pipeline")
@@ -32,6 +32,95 @@ from router.context import RouteContext
 from router.router import route
 from router.router import RouteDecision
 from models.schemas import GradeResult, QuestionData, QuestionType
+
+STREAM_QUESTION_TEXT_CHARS = 520
+STREAM_PARENT_STEM_CHARS = 900
+STREAM_STUDENT_ANSWER_CHARS = 600
+STREAM_WORKING_STEP_CHARS = 280
+STREAM_MAX_WORKING_STEPS = 8
+
+
+def _clip_stream_text(value: object, max_chars: int) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(text) <= max_chars:
+        return text
+    return text[: max(0, max_chars - 3)].rstrip() + "..."
+
+
+def _clip_stream_steps(values: object) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    clipped = [
+        _clip_stream_text(value, STREAM_WORKING_STEP_CHARS)
+        for value in values[:STREAM_MAX_WORKING_STEPS]
+        if str(value or "").strip()
+    ]
+    if len(values) > STREAM_MAX_WORKING_STEPS:
+        clipped.append("...")
+    return clipped
+
+
+def _stream_question_payload(ext: dict) -> dict[str, Any]:
+    return {
+        "question_number": str(ext.get("question_number", "?")),
+        "question_text": _clip_stream_text(ext.get("question_text", ""), STREAM_QUESTION_TEXT_CHARS),
+        "parent_stem": _clip_stream_text(ext.get("parent_stem", "") or "", STREAM_PARENT_STEM_CHARS),
+        "student_answer": _clip_stream_text(ext.get("student_answer", ""), STREAM_STUDENT_ANSWER_CHARS),
+        "working_steps": _clip_stream_steps(ext.get("working_steps", []) or []),
+        "marks": ext.get("marks", 0),
+        "bbox": ext.get("bbox", []) or [],
+        "page": ext.get("page"),
+        "image_quality": ext.get("image_quality", ""),
+        "confidence": float(ext.get("confidence", 0.0) or 0.0),
+        "grading_route": ext.get("grading_route"),
+        "mark_scheme_confidence": ext.get("mark_scheme_confidence"),
+        "mark_scheme_context_error": ext.get("mark_scheme_context_error"),
+        "questionbank_question_id": ext.get("questionbank_question_id"),
+        "questionbank_match_confidence": ext.get("questionbank_match_confidence"),
+    }
+
+
+def _recognition_timeout_fallback(images: list[Any]) -> list[dict]:
+    width, height = (1, 1)
+    if images:
+        width, height = getattr(images[0], "size", (1, 1))
+    return [
+        {
+            "question_number": "本次上传",
+            "bbox": [0, 0, int(width), int(height)],
+            "question_text": "",
+            "parent_stem": "",
+            "student_answer": "",
+            "working_steps": [],
+            "marks": 0,
+            "image_quality": "poor",
+            "confidence": 0.0,
+            "page": 1,
+            "recognition_timeout": True,
+        }
+    ]
+
+
+def _segment_with_timeout(
+    images: list[Any],
+    vision_client,
+    user_hint: str,
+    ocr_client,
+    timeout_seconds: float | None,
+) -> list[dict]:
+    if timeout_seconds is None or timeout_seconds <= 0:
+        return _segment_with_grouping(images, vision_client, user_hint, ocr_client)
+
+    pool = ThreadPoolExecutor(max_workers=1)
+    future = pool.submit(_segment_with_grouping, images, vision_client, user_hint, ocr_client)
+    try:
+        return future.result(timeout=timeout_seconds)
+    except FutureTimeoutError:
+        _log.warning("question recognition timed out after %.1fs", timeout_seconds)
+        future.cancel()
+        return _recognition_timeout_fallback(images)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 def _segment_with_grouping(
@@ -113,10 +202,10 @@ def _flatten_for_stream(record: dict, feedback_mode: str = "both") -> dict[str, 
     return {
         "question_number": record.get("question_number", ""),
         "bbox": record.get("bbox", []),
-        "question_text": record.get("question_text", ""),
-        "parent_stem": record.get("parent_stem", ""),
-        "student_answer": record.get("student_answer", ""),
-        "working_steps": record.get("working_steps", []),
+        "question_text": _clip_stream_text(record.get("question_text", ""), STREAM_QUESTION_TEXT_CHARS),
+        "parent_stem": _clip_stream_text(record.get("parent_stem", ""), STREAM_PARENT_STEM_CHARS),
+        "student_answer": _clip_stream_text(record.get("student_answer", ""), STREAM_STUDENT_ANSWER_CHARS),
+        "working_steps": _clip_stream_steps(record.get("working_steps", [])),
         "page": record.get("page"),
         "image_quality": record.get("image_quality", ""),
         "confidence": float(record.get("confidence", 0.0)),
@@ -844,6 +933,7 @@ def run_pipeline_streaming(
     registry=None,
     prepared_extracted: list[dict] | None = None,
     paper_context: dict | None = None,
+    recognition_timeout_seconds: float | None = None,
 ) -> Generator[tuple[str, dict[str, Any]], None, None]:
     """
     流式版本的 run_pipeline。
@@ -886,7 +976,13 @@ def run_pipeline_streaming(
                   len(images),
                   vision_client.model_id,
                   ocr_client.model_id if ocr_client else "none")
-        extracted_list = _segment_with_grouping(images, vision_client, user_hint, ocr_client)
+        extracted_list = _segment_with_timeout(
+            images,
+            vision_client,
+            user_hint,
+            ocr_client,
+            recognition_timeout_seconds,
+        )
         _log.info("识别到 %d 道题", len(extracted_list))
 
     _attach_mark_scheme_contexts(extracted_list, paper_context)
@@ -896,6 +992,7 @@ def run_pipeline_streaming(
         {
             "question_count": len(extracted_list),
             "questions_preview": [str(e.get("question_number", "?")) for e in extracted_list],
+            "recognition_timed_out": any(bool(e.get("recognition_timeout")) for e in extracted_list),
         },
     )
 
@@ -908,23 +1005,7 @@ def run_pipeline_streaming(
     for ext in extracted_list:
         yield (
             "question_extracted",
-            {
-                "question_number": str(ext.get("question_number", "?")),
-                "question_text": ext.get("question_text", ""),
-                "parent_stem": ext.get("parent_stem", "") or "",
-                "student_answer": ext.get("student_answer", ""),
-                "working_steps": ext.get("working_steps", []) or [],
-                "marks": ext.get("marks", 0),
-                "bbox": ext.get("bbox", []) or [],
-                "page": ext.get("page"),
-                "image_quality": ext.get("image_quality", ""),
-                "confidence": float(ext.get("confidence", 0.0) or 0.0),
-                "grading_route": ext.get("grading_route"),
-                "mark_scheme_confidence": ext.get("mark_scheme_confidence"),
-                "mark_scheme_context_error": ext.get("mark_scheme_context_error"),
-                "questionbank_question_id": ext.get("questionbank_question_id"),
-                "questionbank_match_confidence": ext.get("questionbank_match_confidence"),
-            },
+            _stream_question_payload(ext),
         )
 
     result_queue: queue.Queue[tuple[int | str, dict]] = queue.Queue()

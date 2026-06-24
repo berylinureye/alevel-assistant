@@ -45,6 +45,10 @@ def store(
     page_count: int,
     preview_pages: list[dict],
     paper_resolution: dict,
+    document_parse: dict | None = None,
+    question_spans: list[dict] | None = None,
+    mineru_markdown: str = "",
+    mineru_text: str = "",
     delete_on_remove: bool = False,
 ) -> str:
     pdf_id = uuid.uuid4().hex
@@ -56,6 +60,10 @@ def store(
             "page_count": page_count,
             "preview_pages": preview_pages,
             "paper_resolution": paper_resolution,
+            "document_parse": document_parse or {},
+            "question_spans": question_spans or [],
+            "mineru_markdown": mineru_markdown,
+            "mineru_text": mineru_text,
             "delete_on_remove": delete_on_remove,
             "ts": time.monotonic(),
         }

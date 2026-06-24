@@ -123,6 +123,37 @@ def test_run_mineru_parse_can_force_arm64_launcher(tmp_path, monkeypatch):
     assert calls[0][:3] == ["/usr/bin/arch", "-arm64", str(mineru_bin)]
 
 
+def test_run_mineru_parse_can_reuse_configured_api_url(tmp_path, monkeypatch):
+    pdf_path = tmp_path / "paper.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n")
+    output_dir = tmp_path / "mineru-output"
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append([str(part) for part in cmd])
+        (output_dir / "paper").mkdir(parents=True)
+
+        class Completed:
+            returncode = 0
+            stdout = "ok"
+            stderr = ""
+
+        return Completed()
+
+    mineru_bin = tmp_path / "mineru"
+    mineru_bin.write_text("#!/bin/sh\n", encoding="utf-8")
+    mineru_bin.chmod(0o755)
+    monkeypatch.setenv("MINERU_BIN", str(mineru_bin))
+    monkeypatch.setenv("MINERU_FORCE_ARM64", "0")
+    monkeypatch.setenv("MINERU_API_URL", "http://127.0.0.1:51737")
+    monkeypatch.setattr("questionbank.mineru_adapter.subprocess.run", fake_run)
+
+    run_mineru_parse(pdf_path, output_dir=output_dir)
+
+    assert "--api-url" in calls[0]
+    assert calls[0][calls[0].index("--api-url") + 1] == "http://127.0.0.1:51737"
+
+
 def test_run_mineru_parse_wraps_timeout_as_mineru_error(tmp_path, monkeypatch):
     pdf_path = tmp_path / "paper.pdf"
     pdf_path.write_bytes(b"%PDF-1.4\n")

@@ -23,14 +23,20 @@ from PIL import Image, ImageDraw
 
 from utils.image_utils import _register_optional_image_openers, load_image
 
-from api import upload_cache
+from api import large_pdf_cache, upload_cache
 from api.feedback import log_ai_event
 from api.paper_resolver import (
     build_resolution_steps,
     build_user_hint_with_resolution,
     resolve_paper_context,
 )
-from api.large_pdf import prepare_large_pdf
+from api.large_pdf import (
+    LARGE_PDF_RECOGNITION_TIMEOUT_SECONDS,
+    build_large_pdf_user_hint,
+    parse_selected_pages,
+    prepare_large_pdf,
+    render_pdf_pages_to_temp_files,
+)
 import time as _time
 from pipeline.segmenter import segment_and_extract
 from api.schemas import (
@@ -383,6 +389,163 @@ async def prepare_large_pdf_upload(
     except Exception:
         tmp.unlink(missing_ok=True)
         raise
+
+
+@router.post(
+    "/large-pdf/{pdf_id}/analyze-stream",
+    tags=["large-pdf"],
+    responses={
+        400: {"description": "NO_PAGES_SELECTED / TOO_MANY_PAGES_SELECTED / INVALID_PAGE_SELECTION"},
+        404: {"description": "Large PDF session expired or not found"},
+        200: {"description": "text/event-stream (SSE): segmentation | question | summary | done | error"},
+    },
+)
+async def analyze_large_pdf_stream(
+    request: Request,
+    pdf_id: str,
+    selected_pages: str = Form(..., description="Comma-separated or JSON-ish selected 1-based page numbers"),
+    feedback_mode: FeedbackMode = Form(FeedbackMode.both, description="student | teacher | both"),
+    review_mode: ReviewMode = Form(ReviewMode.auto, description="auto | force | off"),
+    user_hint: str = Form("", description="Optional hint for selected pages"),
+    upload_intent: str = Form("full_past_paper_pdf", description="full_past_paper_pdf | partial_past_paper_pages"),
+    paper_code: str = Form("", description="Optional CAIE paper code"),
+    question_numbers: str = Form("", description="Optional comma-separated question numbers to prioritise"),
+) -> StreamingResponse:
+    session = large_pdf_cache.get(pdf_id)
+    if not session:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "LARGE_PDF_SESSION_NOT_FOUND",
+                "message": "Large PDF session expired. Please upload the PDF again.",
+            },
+        )
+
+    pages = parse_selected_pages(
+        selected_pages,
+        page_count=int(session.get("page_count") or 0),
+        max_pages=MAX_PAGES_PER_REQUEST,
+    )
+    rendered_pages = await run_in_threadpool(
+        render_pdf_pages_to_temp_files,
+        session["pdf_path"],
+        pages,
+    )
+
+    registry = _get_registry(request)
+    session_resolution = session.get("paper_resolution") or {}
+    effective_paper_code = paper_code.strip() or str(session_resolution.get("paper_code") or "")
+    effective_intent = upload_intent.strip() or str(
+        session_resolution.get("upload_intent") or "full_past_paper_pdf"
+    )
+    effective_question_numbers = question_numbers.strip() or ",".join(
+        str(q) for q in (session_resolution.get("question_numbers") or []) if q
+    )
+    paper_resolution = resolve_paper_context(
+        upload_intent=effective_intent,
+        paper_code=effective_paper_code,
+        question_numbers=effective_question_numbers,
+        page_count=len(pages),
+    )
+    paper_pipeline_context = paper_resolution.pipeline_context()
+    effective_user_hint = build_large_pdf_user_hint(
+        build_user_hint_with_resolution(user_hint, paper_resolution),
+        session,
+        pages,
+    )
+
+    log_ai_event("large_pdf_analysis_requested", 0, {
+        "pdf_id": pdf_id,
+        "selected_pages": pages,
+        "page_count": session.get("page_count"),
+        "review_mode": review_mode.value,
+        "paper_resolution": paper_resolution.event_detail(),
+        "mineru_status": (session.get("document_parse") or {}).get("status"),
+    })
+
+    async def event_generator():
+        document_parse = session.get("document_parse") or {}
+        if document_parse:
+            yield (
+                "event: agent_step\ndata: "
+                + json.dumps(
+                    {
+                        "question_number": "本次上传",
+                        "step_type": "observe",
+                        "title": "解析 Large PDF",
+                        "summary": (
+                            "MinerU 已生成 Markdown 上下文。"
+                            if document_parse.get("status") == "ready"
+                            else "MinerU 暂不可用，已回退到 PDF 页面图像分析。"
+                        ),
+                        "status": "completed",
+                        "agent_name": "MinerU",
+                        "tool": "MinerU Markdown",
+                        "confidence": "high" if document_parse.get("status") == "ready" else "low",
+                        "user_visible": True,
+                        "severity": "success" if document_parse.get("status") == "ready" else "info",
+                        "detail": {
+                            "engine": document_parse.get("engine"),
+                            "status": document_parse.get("status"),
+                            "question_count": document_parse.get("question_count"),
+                            "selected_pages": pages,
+                        },
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            )
+
+        for step in build_resolution_steps(paper_resolution):
+            yield (
+                "event: agent_step\ndata: "
+                f"{json.dumps(step, ensure_ascii=False)}\n\n"
+            )
+
+        q: stdlib_queue.Queue[
+            tuple[str, dict] | None
+        ] = stdlib_queue.Queue()
+
+        def _run_pipeline() -> None:
+            try:
+                for event_type, data in run_pipeline_streaming(
+                    [str(t) for t in rendered_pages],
+                    True,
+                    review_mode.value,
+                    effective_user_hint,
+                    feedback_mode.value,
+                    registry=registry,
+                    prepared_extracted=None,
+                    paper_context=paper_pipeline_context,
+                    recognition_timeout_seconds=LARGE_PDF_RECOGNITION_TIMEOUT_SECONDS,
+                ):
+                    q.put((event_type, data))
+            except Exception:
+                _log.exception("Large PDF streaming analysis failed")
+                q.put(("error", {"message": "Large PDF analysis failed. Please try again."}))
+            finally:
+                q.put(None)
+                for t in rendered_pages:
+                    t.unlink(missing_ok=True)
+
+        threading.Thread(target=_run_pipeline, daemon=True).start()
+
+        try:
+            while True:
+                item = await asyncio.to_thread(q.get)
+                if item is None:
+                    break
+                event_type, data = item
+                yield (
+                    f"event: {event_type}\n"
+                    f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                )
+        except asyncio.CancelledError:
+            for t in rendered_pages:
+                t.unlink(missing_ok=True)
+            raise
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 def _resolve_prepared(upload_ids_raw: str) -> list[dict] | None:

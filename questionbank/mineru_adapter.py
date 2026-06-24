@@ -159,6 +159,9 @@ def run_mineru_parse(
         "-l",
         resolved_lang,
     ]
+    api_url = os.environ.get("MINERU_API_URL", "").strip()
+    if api_url:
+        cmd.extend(["--api-url", api_url])
     if start_page is not None:
         cmd.extend(["-s", str(start_page)])
     if end_page is not None:
