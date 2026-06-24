@@ -9,6 +9,7 @@ from starlette.concurrency import run_in_threadpool
 
 from questionbank.database import ensure_db, get_random_questions
 from questionbank.models import QuestionBankItem
+from scraper.taxonomy import PAPER_TOPICS
 
 PracticeRecommendationMode = Literal["auto", "ask_first", "none"]
 PracticeUploadIntent = Literal[
@@ -52,6 +53,22 @@ BROAD_TOPIC_BY_PAPER: dict[str, dict[int, str]] = {
     "differentiation": {1: "differentiation_p1", 2: "differentiation_p2", 3: "differentiation_p3"},
     "integration": {1: "integration_p1", 2: "integration_p2", 3: "integration_p3"},
 }
+
+SUBTOPIC_PARENT_BY_PAPER: dict[int, dict[str, str]] = {
+    paper_num: {
+        subtopic: topic_key
+        for topic_key, topic_data in topics.items()
+        for subtopic in topic_data["subtopics"]
+    }
+    for paper_num, topics in PAPER_TOPICS.items()
+}
+
+SUBTOPIC_PARENT_GLOBAL: dict[str, list[str]] = {}
+for _paper_num, _subtopics in SUBTOPIC_PARENT_BY_PAPER.items():
+    for _subtopic, _topic_key in _subtopics.items():
+        SUBTOPIC_PARENT_GLOBAL.setdefault(_subtopic, [])
+        if _topic_key not in SUBTOPIC_PARENT_GLOBAL[_subtopic]:
+            SUBTOPIC_PARENT_GLOBAL[_subtopic].append(_topic_key)
 
 
 class PracticeRecommendationContext(BaseModel):
@@ -145,31 +162,49 @@ def _normalise_topic_key(value: object, paper_num: Optional[int]) -> Optional[st
     return None
 
 
+def _parent_topics_for_subtopic(value: str, paper_num: Optional[int]) -> list[str]:
+    if paper_num in SUBTOPIC_PARENT_BY_PAPER:
+        parent = SUBTOPIC_PARENT_BY_PAPER[paper_num].get(value)
+        return [parent] if parent else []
+    return SUBTOPIC_PARENT_GLOBAL.get(value, [])
+
+
+def _candidate_topic_keys(value: object, paper_num: Optional[int]) -> list[str]:
+    topic = _normalise_topic_key(value, paper_num)
+    if not topic:
+        return []
+    ordered = [topic]
+    for parent in _parent_topics_for_subtopic(topic, paper_num):
+        if parent not in ordered:
+            ordered.append(parent)
+    return ordered
+
+
 def derive_candidate_topics(req: PracticeRecommendationRequest) -> list[str]:
     paper_num = normalise_paper_num(req.context.paper_num)
     ordered: list[str] = []
 
     for item in req.priority_topics:
         for key in ("topic", "subtopic", "chapter"):
-            topic = _normalise_topic_key(item.get(key), paper_num)
-            if topic and topic not in ordered:
-                ordered.append(topic)
+            for topic in _candidate_topic_keys(item.get(key), paper_num):
+                if topic not in ordered:
+                    ordered.append(topic)
 
     for key, _count in sorted(req.knowledge_tags_summary.items(), key=lambda kv: kv[1], reverse=True):
-        topic = _normalise_topic_key(key, paper_num)
-        if topic and topic not in ordered:
-            ordered.append(topic)
+        for topic in _candidate_topic_keys(key, paper_num):
+            if topic not in ordered:
+                ordered.append(topic)
 
     for question in req.questions:
         if question.is_correct:
             continue
         for tag in question.knowledge_tags:
-            topic = _normalise_topic_key(tag, paper_num)
-            if topic and topic not in ordered:
+            for topic in _candidate_topic_keys(tag, paper_num):
+                if topic not in ordered:
+                    ordered.append(topic)
+        for topic in _candidate_topic_keys(question.error_type, paper_num):
+            if topic not in ordered:
                 ordered.append(topic)
-        topic = _normalise_topic_key(question.error_type, paper_num)
-        if topic and topic not in ordered:
-            ordered.append(topic)
 
     return ordered
 

@@ -177,7 +177,19 @@ def get_random_questions(
 
     if topics:
         placeholders = ",".join("?" for _ in topics)
-        where_clauses.append(f"q.topic IN ({placeholders})")
+        where_clauses.append(
+            f"""(
+                q.topic IN ({placeholders})
+                OR q.subtopic IN ({placeholders})
+                OR EXISTS (
+                    SELECT 1 FROM question_tags qt_filter
+                    WHERE qt_filter.question_id = q.id
+                      AND qt_filter.tag IN ({placeholders})
+                )
+            )"""
+        )
+        params.extend(topics)
+        params.extend(topics)
         params.extend(topics)
 
     where_clauses.append("q.difficulty >= ? AND q.difficulty <= ?")
