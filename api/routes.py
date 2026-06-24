@@ -70,7 +70,7 @@ MAX_FILE_BYTES  = 20 * 1024 * 1024          # 20 MB per uploaded image
 # Max pages per /analyze-homework{,-stream} request. Must be kept in sync with
 # MAX_FILES in frontend/src/components/UploadForm.tsx — the frontend enforces
 # this before upload, the server enforces it as a hard guard.
-MAX_PAGES_PER_REQUEST = 16
+MAX_PAGES_PER_REQUEST = 24
 ALLOWED_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "HEIC", "HEIF"}
 _pipeline_semaphore = asyncio.Semaphore(2)  # max 2 concurrent pipeline executions

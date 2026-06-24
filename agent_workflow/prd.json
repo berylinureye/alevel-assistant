@@ -193,6 +193,43 @@
         }
       ],
       "updated_at": "2026-06-20T03:28:05+00:00"
+    },
+    {
+      "id": "AW-006",
+      "title": "Implement Large PDF Mode Milestone 3 frontend selection UI",
+      "status": "completed",
+      "priority": "P1",
+      "owner": "orchestrator",
+      "files": [
+        "frontend/src/api/largePdfClient.ts",
+        "frontend/src/components/largePdf/LargePdfMode.tsx",
+        "frontend/src/components/largePdf/PdfPagePicker.tsx",
+        "frontend/src/components/largePdf/PaperContextCard.tsx",
+        "frontend/src/components/UploadForm.tsx",
+        "frontend/src/types/index.ts"
+      ],
+      "acceptance": [
+        "Frontend can upload a PDF through the dedicated Large PDF prepare route.",
+        "Large PDF UI shows paper-resolution metadata, manual paper code and question-number inputs.",
+        "Large PDF UI shows page thumbnails auto-selected by default with selected count up to 24.",
+        "Existing image upload and small-PDF conversion paths keep working unchanged.",
+        "Evidence includes TypeScript/build checks and real UI screenshot or DOM evidence."
+      ],
+      "events": [
+        {
+          "at": "2026-06-20T03:30:49+00:00",
+          "agent": "orchestrator",
+          "status": "in_progress",
+          "note": "Starting Large PDF frontend selection UI with typed client, guided page picker, and visual verification."
+        },
+        {
+          "at": "2026-06-20T03:48:15+00:00",
+          "agent": "orchestrator",
+          "status": "completed",
+          "note": "Implemented Large PDF frontend selection UI and adjusted UX after user feedback: single-run budget increased to 24 pages, Large PDF pages are auto-selected by default, and a top start button lets users begin without manual page selection. Added typed prepare client, LargePdfMode/PaperContextCard/PdfPagePicker, Vite /large-pdf proxy, selected-page conversion through existing grading flow, replay route, and synced specs. Evidence: npm run build passed; focused eslint on touched frontend files passed; pytest test/test_large_pdf_mode.py test/test_paper_resolver.py -q passed; real /large-pdf/prepare and Vite proxy prepare returned ready for 20-page fixture; visual acceptance passed with screenshots in /private/tmp/alevel-large-pdf-ui-topstart."
+        }
+      ],
+      "updated_at": "2026-06-20T03:48:15+00:00"
     }
   ]
 }

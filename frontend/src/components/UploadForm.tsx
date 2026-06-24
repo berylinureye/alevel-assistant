@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { AnalyzeRequest, UploadIntent } from '../types'
-import { pdfToImages } from '../utils/pdfToImages'
+import type { AnalyzeRequest, LargePdfPrepareResponse, UploadIntent } from '../types'
+import { getPdfPageCount, pdfPagesToImages, pdfToImages } from '../utils/pdfToImages'
 import { prepareUpload, trackEvent } from '../api/client'
+import { prepareLargePdf } from '../api/largePdfClient'
 import { ImageCropper } from './ImageCropper'
+import { LargePdfMode, type LargePdfAnalyzeContext } from './largePdf/LargePdfMode'
 
 type PrepareStatus = 'processing' | 'ready' | 'failed'
 
@@ -14,11 +16,12 @@ interface PrepareState {
 // Must match MAX_PAGES_PER_REQUEST in api/routes.py. Uploading more than this
 // yields "Max N pages per request." and the analyze request fails entirely.
 // Keep both ends in lockstep.
-const MAX_FILES = 16
+const MAX_FILES = 24
 const MAX_BYTES = 20 * 1024 * 1024
 // PDF file size cap is larger than single-image cap because a single PDF can
 // legitimately contain up to MAX_FILES pages worth of scans.
-const MAX_PDF_BYTES = 40 * 1024 * 1024
+const MAX_SMALL_PDF_BYTES = 40 * 1024 * 1024
+const MAX_LARGE_PDF_BYTES = 80 * 1024 * 1024
 const ALLOWED_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -207,28 +210,29 @@ function ImagesPreview({
 }) {
   const [index, setIndex] = useState(0)
   const [zoomed, setZoomed] = useState(false)
-  const [urls, setUrls] = useState<string[]>([])
   const touchStartX = useRef<number | null>(null)
 
+  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
+
   useEffect(() => {
-    const u = files.map((f) => URL.createObjectURL(f))
-    setUrls(u)
     return () => {
-      for (const x of u) URL.revokeObjectURL(x)
+      for (const x of urls) URL.revokeObjectURL(x)
     }
-  }, [files])
+  }, [urls])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') setIndex((i) => Math.max(0, i - 1))
-      else if (e.key === 'ArrowRight') setIndex((i) => Math.min(files.length - 1, i + 1))
-      else if (e.key === 'Escape') onBack()
+      if (e.key === 'ArrowLeft') {
+        setZoomed(false)
+        setIndex((i) => Math.max(0, i - 1))
+      } else if (e.key === 'ArrowRight') {
+        setZoomed(false)
+        setIndex((i) => Math.min(files.length - 1, i + 1))
+      } else if (e.key === 'Escape') onBack()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [files.length, onBack])
-
-  useEffect(() => setZoomed(false), [index])
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (zoomed) return
@@ -239,6 +243,7 @@ function ImagesPreview({
     const dx = e.changedTouches[0].clientX - touchStartX.current
     touchStartX.current = null
     if (Math.abs(dx) < 40) return
+    setZoomed(false)
     if (dx < 0) setIndex((i) => Math.min(files.length - 1, i + 1))
     else setIndex((i) => Math.max(0, i - 1))
   }
@@ -300,7 +305,10 @@ function ImagesPreview({
         {index > 0 && (
           <button
             type="button"
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            onClick={() => {
+              setZoomed(false)
+              setIndex((i) => Math.max(0, i - 1))
+            }}
             aria-label="上一张"
             className="absolute left-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 sm:flex"
           >
@@ -312,7 +320,10 @@ function ImagesPreview({
         {index < files.length - 1 && (
           <button
             type="button"
-            onClick={() => setIndex((i) => Math.min(files.length - 1, i + 1))}
+            onClick={() => {
+              setZoomed(false)
+              setIndex((i) => Math.min(files.length - 1, i + 1))
+            }}
             aria-label="下一张"
             className="absolute right-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 sm:flex"
           >
@@ -355,7 +366,10 @@ function ImagesPreview({
                 <button
                   key={i}
                   type="button"
-                  onClick={() => setIndex(i)}
+                  onClick={() => {
+                    setZoomed(false)
+                    setIndex(i)
+                  }}
                   aria-label={`第 ${i + 1} 张`}
                   className={`h-2 w-6 rounded-full transition ${dotClass} ${
                     i === index ? 'opacity-100 ring-1 ring-white/70' : 'opacity-70'
@@ -384,6 +398,8 @@ export function UploadForm({
   const [isDragOver, setIsDragOver] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null)
+  const [largePdfSession, setLargePdfSession] = useState<LargePdfPrepareResponse | null>(null)
+  const [largePdfFile, setLargePdfFile] = useState<File | null>(null)
   const [pendingCropUrl, setPendingCropUrl] = useState<string | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -436,7 +452,7 @@ export function UploadForm({
   }, [initialFiles])
 
   const atCapacity = files.length >= MAX_FILES
-  const canAddMore = !atCapacity && !loading && !pdfLoading
+  const canAddMore = !atCapacity && !loading && !pdfLoading && !largePdfSession
 
   const kickoffPrepare = (file: File) => {
     setPrepareStates((prev) => {
@@ -642,20 +658,46 @@ export function UploadForm({
    * (prepares already ~done by the time the last page finishes rendering).
    */
   const processPdfFile = async (file: File) => {
-    if (file.size > MAX_PDF_BYTES) {
-      setBatchMessages([`PDF 文件超过 ${MAX_PDF_BYTES / 1024 / 1024} MB，请压缩后重试`])
-      return
-    }
-    const room = MAX_FILES - filesRef.current.length
-    if (room <= 0) {
-      setBatchMessages([`已达到 ${MAX_FILES} 张上限，无法添加 PDF 页面`])
+    if (file.size > MAX_LARGE_PDF_BYTES) {
+      setBatchMessages([`PDF 文件超过 ${MAX_LARGE_PDF_BYTES / 1024 / 1024} MB，请压缩后重试`])
       return
     }
     setPdfLoading(true)
-    // Placeholder total; pdfToImages will call onProgress(0, realCount) immediately
-    // after loading the document, which overwrites this with the actual page count.
     setPdfProgress({ current: 0, total: 0 })
     try {
+      const pageCount = await getPdfPageCount(file)
+      const useLargePdfMode =
+        uploadIntent === 'past_paper' ||
+        pageCount > MAX_FILES ||
+        file.size > MAX_SMALL_PDF_BYTES
+
+      if (useLargePdfMode) {
+        if (filesRef.current.length > 0) {
+          setBatchMessages(['请先清空当前图片，再上传完整 PDF 进入选页模式'])
+          return
+        }
+        const prepared = await prepareLargePdf(file, {
+          uploadIntent: uploadIntent === 'past_paper' ? 'full_past_paper_pdf' : uploadIntent,
+          paperCode,
+          questionNumbers,
+        })
+        setLargePdfFile(file)
+        setLargePdfSession(prepared)
+        setBatchMessages([`已读取 ${prepared.page_count} 页 PDF，已自动选中可处理页面`])
+        trackEvent('ui_large_pdf_prepare', {
+          page_count: prepared.page_count,
+          upload_intent: uploadIntent,
+          match_confidence: prepared.paper_resolution?.match_confidence,
+          has_paper_code: paperCode.trim().length > 0,
+        })
+        return
+      }
+
+      const room = MAX_FILES - filesRef.current.length
+      if (room <= 0) {
+        setBatchMessages([`已达到 ${MAX_FILES} 张上限，无法添加 PDF 页面`])
+        return
+      }
       const { files: pageFiles, totalPages, skipped } = await pdfToImages(file, room, {
         onPage: (pageFile) => {
           // Add one file at a time — addFilesFromList kicks off prepare-upload
@@ -672,8 +714,8 @@ export function UploadForm({
         msgs.push(`PDF 共 ${totalPages} 页，因上限已跳过后 ${skipped} 页`)
       }
       setBatchMessages(msgs)
-    } catch {
-      setBatchMessages(['PDF 解析失败，请检查文件是否损坏'])
+    } catch (err) {
+      setBatchMessages([err instanceof Error ? err.message : 'PDF 解析失败，请检查文件是否损坏'])
     } finally {
       setPdfLoading(false)
       setPdfProgress(null)
@@ -700,9 +742,11 @@ export function UploadForm({
     files.length >= MAX_FILES ? 'font-medium text-amber-600' : 'text-slate-600'
 
   const handleResetUpload = () => {
-    if (loading || files.length === 0) return
+    if (loading || (files.length === 0 && !largePdfSession)) return
     onResetUpload?.()
     setFiles([])
+    setLargePdfSession(null)
+    setLargePdfFile(null)
     setPrepareStates(new Map())
     setBatchMessages([])
     window.setTimeout(() => {
@@ -713,6 +757,77 @@ export function UploadForm({
   const handleCancel = () => {
     if (!loading) return
     onCancelAnalysis?.()
+  }
+
+  const handleLargePdfBack = () => {
+    if (loading || pdfLoading) return
+    setLargePdfSession(null)
+    setLargePdfFile(null)
+    setBatchMessages([])
+  }
+
+  const handleLargePdfAnalyze = async (context: LargePdfAnalyzeContext) => {
+    if (!largePdfFile || loading || pdfLoading) return
+    setPdfLoading(true)
+    setPdfProgress({ current: 0, total: context.selectedPages.length })
+    try {
+      const { files: pageFiles } = await pdfPagesToImages(largePdfFile, context.selectedPages, {
+        onProgress: (current, total) => setPdfProgress({ current, total }),
+      })
+      trackEvent('ui_large_pdf_submit', {
+        pdf_id: largePdfSession?.pdf_id,
+        page_count: largePdfSession?.page_count,
+        selected_count: context.selectedPages.length,
+        selected_pages: context.selectedPages,
+        upload_intent: context.uploadIntent,
+        has_paper_code: context.paperCode.trim().length > 0,
+        has_question_numbers: context.questionNumbers.trim().length > 0,
+      })
+      onSubmit({
+        images: pageFiles,
+        upload_intent: context.uploadIntent,
+        paper_code: context.paperCode.trim(),
+        question_numbers: context.questionNumbers.trim(),
+      })
+    } catch (err) {
+      setBatchMessages([err instanceof Error ? err.message : 'PDF 页面准备失败，请重新选择页面'])
+    } finally {
+      setPdfLoading(false)
+      setPdfProgress(null)
+    }
+  }
+
+  const batchMessagesToast = batchMessages.length > 0 ? (
+    <div
+      className="fixed bottom-4 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white shadow-lg"
+      role="status"
+    >
+      <div className="space-y-1.5">
+        {batchMessages.map((msg, idx) => (
+          <p key={idx}>{msg}</p>
+        ))}
+      </div>
+    </div>
+  ) : null
+
+  if (largePdfSession && largePdfFile) {
+    return (
+      <>
+        <LargePdfMode
+          key={largePdfSession.pdf_id}
+          session={largePdfSession}
+          uploadIntent={uploadIntent}
+          initialPaperCode={paperCode}
+          initialQuestionNumbers={questionNumbers}
+          maxSelectedPages={MAX_FILES}
+          disabled={loading || pdfLoading}
+          progress={pdfLoading ? pdfProgress : null}
+          onBack={handleLargePdfBack}
+          onAnalyzeSelectedPages={handleLargePdfAnalyze}
+        />
+        {batchMessagesToast}
+      </>
+    )
   }
 
   return (
@@ -849,7 +964,7 @@ export function UploadForm({
             <div className="flex flex-wrap gap-2 text-xs text-slate-500">
               <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">最多 {MAX_FILES} 张</span>
               <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">单张 20 MB</span>
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">PDF 40 MB</span>
+              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">PDF 80 MB</span>
             </div>
           </div>
 
@@ -1071,7 +1186,7 @@ export function UploadForm({
                   : '上传 PDF 文件'}
               </span>
               <span className="mt-0.5 block text-xs text-slate-500">
-                PDF 每页将自动转换为图片进行批改 · 文件最大 {MAX_PDF_BYTES / 1024 / 1024} MB
+                16 页内默认自动拆图；长 PDF 或真题卷会先进入选页模式 · 文件最大 {MAX_LARGE_PDF_BYTES / 1024 / 1024} MB
               </span>
             </div>
 
@@ -1119,18 +1234,7 @@ export function UploadForm({
         ) : null}
 
         {/* ============ Batch messages toast ============ */}
-        {batchMessages.length > 0 ? (
-          <div
-            className="fixed bottom-4 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white shadow-lg"
-            role="status"
-          >
-            <div className="space-y-1.5">
-              {batchMessages.map((msg, idx) => (
-                <p key={idx}>{msg}</p>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {batchMessagesToast}
 
         {/* ============ Action buttons ============ */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
