@@ -7,6 +7,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+.venv-mineru/
 venv/
 env/
 
@@ -29,6 +30,7 @@ frontend/node_modules/
 data/feedback.db
 data/*.db-shm
 data/*.db-wal
+data/mineru_output/
 
 # Large local paper corpus. Keep the catalog/DB in git; restore PDFs locally
 # or manage them separately with Git LFS/object storage if needed.
