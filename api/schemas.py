@@ -75,6 +75,8 @@ class QuestionResponse(BaseModel):
     grading_route: Optional[str] = None
     mark_scheme_confidence: Optional[str] = None
     mark_scheme_context_error: Optional[str] = None
+    questionbank_question_id: Optional[int] = None
+    questionbank_match_confidence: Optional[str] = None
     # 路由元信息
     routing_info:    RoutingInfoResponse
 

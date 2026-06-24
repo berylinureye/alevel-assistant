@@ -192,6 +192,8 @@ def _flatten_question(q: dict, feedback_mode: FeedbackMode) -> QuestionResponse:
         grading_route      = q.get("grading_route"),
         mark_scheme_confidence = q.get("mark_scheme_confidence"),
         mark_scheme_context_error = q.get("mark_scheme_context_error"),
+        questionbank_question_id = q.get("questionbank_question_id"),
+        questionbank_match_confidence = q.get("questionbank_match_confidence"),
         student_feedback   = student_fb,
         teacher_feedback   = teacher_fb,
         routing_info       = routing_info,

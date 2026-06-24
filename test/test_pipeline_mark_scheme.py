@@ -12,6 +12,7 @@ from api.routes import _flatten_question
 from api.schemas import FeedbackMode
 from models.schemas import GradeResult, QuestionType
 from questionbank.mark_scheme import QuestionMarkSchemeContext
+from questionbank.pastpaper_matcher import QuestionBankMarkSchemeContext
 from router.models import ModelRole
 
 
@@ -112,6 +113,83 @@ def test_attach_mark_scheme_contexts_uses_extracted_question_numbers(monkeypatch
     assert extracted[0]["mark_scheme_context"] == "Official mark scheme context for Q1: B1 M1 A1."
     assert extracted[0]["mark_scheme_confidence"] == "high"
     assert extracted[0]["grading_route"] == "past_paper_mark_scheme"
+
+
+def test_attach_mark_scheme_contexts_fuses_questionbank_and_official_ms(monkeypatch) -> None:
+    class DummyConn:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    dummy_conn = DummyConn()
+
+    def fake_context_map(*, catalog_match, question_numbers, paper_label=None, root=None):
+        return {
+            "1": QuestionMarkSchemeContext(
+                question_number="1",
+                text="Official mark scheme context for Q1: B1 M1 A1.",
+                confidence="high",
+                reason="ok",
+            )
+        }
+
+    def fake_qb_context(conn, *, catalog_match, question_number):
+        assert conn is dummy_conn
+        assert question_number == "1(a)"
+        return QuestionBankMarkSchemeContext(
+            question_id=5537,
+            question_number="1(a)",
+            confidence="high",
+            reason="Exact question-number match.",
+            text=(
+                "Matched question bank record from the same past paper:\n"
+                "- question_id: 5537\n"
+                "- Structured marking points:\n"
+                "  - M1: Use a complete method.\n"
+                "  - A1: Obtain the correct answer."
+            ),
+        )
+
+    monkeypatch.setattr(pipeline, "build_mark_scheme_context_map", fake_context_map)
+    monkeypatch.setattr(pipeline, "build_questionbank_mark_scheme_context", fake_qb_context)
+    monkeypatch.setattr(pipeline, "ensure_db", lambda: dummy_conn)
+
+    extracted = [
+        {
+            "question_number": "1(a)",
+            "question_text": "Find the time.",
+            "student_answer": "16",
+            "working_steps": [],
+        }
+    ]
+
+    pipeline._attach_mark_scheme_contexts(
+        extracted,
+        {
+            "grading_route": "past_paper_mark_scheme",
+            "paper_label": "CIE 9709/41 May/Jun 2022",
+            "question_numbers": [],
+            "catalog_match": {
+                "subject": "9709",
+                "year": 2022,
+                "session": "s",
+                "paper_num": 4,
+                "variant": 1,
+                "ms_path": "data/papers/9709/2022/9709_s22_ms_41.pdf",
+                "has_ms": True,
+            },
+        },
+    )
+
+    assert "Matched question bank record" in extracted[0]["mark_scheme_context"]
+    assert "M1: Use a complete method." in extracted[0]["mark_scheme_context"]
+    assert "Official mark scheme context for Q1" in extracted[0]["mark_scheme_context"]
+    assert extracted[0]["questionbank_question_id"] == 5537
+    assert extracted[0]["questionbank_match_confidence"] == "high"
+    assert extracted[0]["mark_scheme_confidence"] == "high"
+    assert extracted[0]["grading_route"] == "past_paper_mark_scheme"
+    assert dummy_conn.closed is True
 
 
 def test_mark_scheme_fallback_metadata_survives_pipeline_and_api_flatteners(monkeypatch) -> None:

@@ -208,7 +208,89 @@ def _line_is_next_question_heading(line: str, current_question: str) -> bool:
     return int(match.group(1)) > int(current_question)
 
 
+def _normalise_line(line: str) -> str:
+    return re.sub(r"\s+", " ", line).strip()
+
+
+def _line_question_token(line: str) -> tuple[int, str] | None:
+    clean = _normalise_line(line).lower()
+    match = re.fullmatch(r"(\d{1,2})((?:\([a-zivxlcdm]+\))*)", clean)
+    if not match:
+        return None
+    return int(match.group(1)), match.group(2) or ""
+
+
+def _previous_nonempty(lines: list[str], idx: int, *, limit: int = 6) -> list[str]:
+    values: list[str] = []
+    for raw in reversed(lines[max(0, idx - limit):idx]):
+        clean = _normalise_line(raw)
+        if clean:
+            values.append(clean.lower())
+    return values
+
+
+def _next_nonempty(lines: list[str], idx: int, *, limit: int = 6) -> list[str]:
+    values: list[str] = []
+    for raw in lines[idx + 1:idx + 1 + limit]:
+        clean = _normalise_line(raw)
+        if clean:
+            values.append(clean.lower())
+    return values
+
+
+def _near_table_header(lines: list[str], idx: int) -> bool:
+    previous = set(_previous_nonempty(lines, idx, limit=8))
+    return {"question", "answer", "marks", "guidance"}.issubset(previous)
+
+
+def _is_table_question_boundary(lines: list[str], idx: int, current_question: str) -> bool:
+    token = _line_question_token(lines[idx])
+    if token is None:
+        return False
+    qint, suffix = token
+    current = int(current_question)
+    if qint != current + 1:
+        return False
+    if suffix:
+        return True
+    return _near_table_header(lines, idx)
+
+
+def _extract_table_question_block(text: str, question_number: str) -> str:
+    lines = text.splitlines()
+    current = int(question_number)
+    start: int | None = None
+    end = len(lines)
+
+    for idx, line in enumerate(lines):
+        token = _line_question_token(line)
+        if token is None:
+            continue
+        qint, suffix = token
+        if qint != current:
+            continue
+        if suffix or _near_table_header(lines, idx):
+            start = idx
+            break
+
+    if start is None:
+        return ""
+
+    for idx in range(start + 1, len(lines)):
+        if _is_table_question_boundary(lines, idx, question_number):
+            end = idx
+            break
+
+    block = "\n".join(lines[start:end])
+    block = re.sub(r"\n{3,}", "\n\n", block).strip()
+    return block
+
+
 def _extract_question_block(text: str, question_number: str) -> str:
+    table_block = _extract_table_question_block(text, question_number)
+    if table_block:
+        return table_block
+
     lines = text.splitlines()
     start: int | None = None
     end = len(lines)
