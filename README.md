@@ -43,6 +43,8 @@ flowchart TD
 
 OCR 的当前策略是保守协作：Mathpix 先作为专用 OCR 读图；只有当 OCR 文本看起来包含真实题干语言时，才作为二级参考进入 segmenter prompt。若 Mathpix 只读到手写步骤或失败，则不让它改写主抽取结果，保留本地 tesseract 作为兜底探针。
 
+模型角色、环境变量和完整 OCR 链路见 [Model Routing And OCR Chain](docs/model-routing-and-ocr-chain.md)。
+
 主要目录：
 
 | Path | 作用 |

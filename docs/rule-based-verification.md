@@ -29,6 +29,8 @@ Final result
 - `utils/image_utils.py`
 - `parser/pdf_parser.py`
 
+模型角色、环境变量和 OCR 链路总览见 [Model Routing And OCR Chain](model-routing-and-ocr-chain.md)。
+
 整页作业进入系统后，Vision/Base 模型一次性完成切题和字段提取，输出题号、题干、学生答案、步骤、分值、页码、图表类型等结构化 JSON。与此同时，专用 OCR 模型并行抽取纯文本。当前 OCR 首选 Mathpix Convert API；如果 Mathpix 没返回可用结果，可回到本地 tesseract 作为弱探针。
 
 关键取舍：
