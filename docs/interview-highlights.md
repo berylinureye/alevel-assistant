@@ -68,7 +68,7 @@ Base model 先做一次快速批改；同时计算 `RouteContext`（提取置信
 ### 为什么选这个方法
 - **单次调用**：切题 + 提取合并为一次 LLM call，少一轮往返 = 少一次误差累积、少一倍延迟成本。
 - **下游批改依赖真实错误**：如果 segmenter 帮学生"修"了答案，grader 看到的是对的，就会判满分 —— 但教师完全看不到学生到底哪里不会。
-- **可选 OCR 交叉验证**：并行调用专用 OCR（不增加墙钟延迟，`max(vision, ocr)`），用 `SequenceMatcher` 找上下文 ≥0.7 匹配时替换 vision 识别的数字。只纠**数字**，不碰结构。
+- **可选 OCR 交叉验证**：并行调用 Mathpix Convert API / 本地 OCR 兜底（不增加太多墙钟延迟，接近 `max(vision, ocr)`）。OCR 不直接主控结构；只有当 OCR 文本看起来包含真实题干语言时，才作为二级 prompt hint。若 OCR 只读到学生手写步骤，则仅作为 audit evidence，避免干扰 `question_text` 和 final answer。
 
 ### 目标用户
 - **学生**：iPhone 拍照（HEIC 格式，已在 Dockerfile 装 libheif + pillow-heif 支持），光线差时数字容易混。
@@ -78,6 +78,7 @@ Base model 先做一次快速批改；同时计算 `RouteContext`（提取置信
 - 两次 LLM 调用：延迟 x2、token 成本 x2、信息在两次传输间丢失。
 - Segmenter 自作主张纠错：假阳性满分、教学诊断彻底失效。
 - 不做 OCR 交叉验证：数字题（统计、概率）一个数字识别错 = 整题判错。
+- 不给 OCR 加 guard：手写-only 图上，专用 OCR 可能只读到学生步骤，反而诱导主模型清空或编造题干。
 
 ### 检验标准
 - `test_segmenter_pdf.py` + `bench_out_*.json` 里的 `avg_confidence`、`question_count`。
@@ -162,6 +163,7 @@ LLM 给出判分后，对**微分/积分/代数**题再做一次符号验证：
 
 ### 检验标准
 - `build_grading_agents()` 要求至少有一把 key（DEEPSEEK/DASHSCOPE/GLM），否则 `RuntimeError`，配置缺失能在启动时暴露。
+- `build_registry()` 在 OCR 上按 Mathpix → DashScope → 显式 `OCR_MODEL`/VIVIAI → local tesseract 的顺序装配；Mathpix 缺失或失败不会拖垮主流程。
 
 ---
 

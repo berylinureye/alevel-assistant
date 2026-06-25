@@ -12,7 +12,7 @@ import logging
 import os
 import re
 import unicodedata
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -27,6 +27,8 @@ _OCR_PROMPT = (
 )
 
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+
+OCR_HINT_DEFAULT_CHARS = 6000
 
 _SEGMENT_EXTRACT_PROMPT = """\
 RESPOND WITH ONLY A JSON ARRAY. No explanation, no markdown.
@@ -186,6 +188,40 @@ def _call_ocr(b64: str, ocr_client: ModelClient) -> str:
     except Exception as e:
         logging.getLogger("pipeline.segmenter").warning("OCR call failed: %s", e)
         return ""
+
+
+def _is_local_tesseract_ocr(ocr_client: ModelClient | None) -> bool:
+    return str(getattr(ocr_client, "provider", "") or "").strip().lower() == "local_tesseract"
+
+
+def _env_truthy(name: str, default: str = "0") -> bool:
+    return os.environ.get(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _format_ocr_reference(page_text: dict[int, str], *, max_chars: int) -> str:
+    parts: list[str] = []
+    for page_index in sorted(page_text):
+        text = (page_text.get(page_index) or "").strip()
+        if text:
+            parts.append(f"--- Page {page_index + 1} ---\n{text}")
+    joined = "\n\n".join(parts).strip()
+    if max_chars > 0 and len(joined) > max_chars:
+        return joined[:max_chars].rstrip() + "\n...[truncated]"
+    return joined
+
+
+_QUESTION_LANGUAGE_RE = re.compile(
+    r"\b(find|show|calculate|determine|solve|prove|hence|given|write\s+down|"
+    r"question|marks?|coordinates?|equation\s+of|probability|differentiate|integrate)\b",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_question_ocr_reference(text: str) -> bool:
+    """Return true when OCR appears to include printed task language, not just working."""
+    clean = re.sub(r"\\[a-zA-Z]+|[_^{}()[\]=+\-*/.,:;0-9|]+", " ", text)
+    words = re.findall(r"[A-Za-z]{3,}", clean)
+    return len(words) >= 3 and bool(_QUESTION_LANGUAGE_RE.search(text))
 
 
 # ---------------------------------------------------------------------------
@@ -2009,13 +2045,47 @@ def segment_and_extract(
                 [f"{im.size[0]}x{im.size[1]}" for im in batched],
             )
 
-    # 并行启动 OCR（每张原图一个 future），与主 VL 调用同时跑。
-    # 注意 OCR 仍然走原始分页，保持每页独立，不受拼图影响。
-    ocr_futures: list = []
+    # 并行启动远程/专用 OCR（每张原图一个 future），与主 VL 调用同时跑。
+    # Local Tesseract is intentionally probe-only: it is useful for page headers
+    # but too weak for full-page math transcription and should not rewrite fields.
+    ocr_futures: list[tuple[int, object]] = []
     ocr_pool: ThreadPoolExecutor | None = None
-    if ocr_client is not None and ocr_client is not client:
+    ocr_text_by_page: dict[int, str] = {}
+    if (
+        ocr_client is not None
+        and ocr_client is not client
+        and not _is_local_tesseract_ocr(ocr_client)
+    ):
         ocr_pool = ThreadPoolExecutor(max_workers=max(1, n_pages))
-        ocr_futures = [ocr_pool.submit(_call_ocr, b64, ocr_client) for b64 in b64_list]
+        ocr_futures = [
+            (i, ocr_pool.submit(_call_ocr, b64, ocr_client))
+            for i, b64 in enumerate(b64_list)
+        ]
+
+    ocr_reference = ""
+    if ocr_futures and _env_truthy("SEGMENT_OCR_HINT_ENABLED", "1"):
+        hint_timeout = max(0.0, float(os.environ.get("SEGMENT_OCR_HINT_TIMEOUT_SECONDS", "8")))
+        done, _pending = wait([future for _i, future in ocr_futures], timeout=hint_timeout)
+        for i, future in ocr_futures:
+            if future not in done:
+                continue
+            try:
+                text = future.result() or ""
+            except Exception as e:
+                logging.getLogger("pipeline.segmenter").warning("OCR page %d failed: %s", i + 1, e)
+                text = ""
+            if text.strip():
+                ocr_text_by_page[i] = text.strip()
+        try:
+            hint_chars = int(os.environ.get("SEGMENT_OCR_HINT_CHARS", str(OCR_HINT_DEFAULT_CHARS)))
+        except ValueError:
+            hint_chars = OCR_HINT_DEFAULT_CHARS
+        ocr_reference = _format_ocr_reference(ocr_text_by_page, max_chars=hint_chars)
+        if (
+            _env_truthy("SEGMENT_OCR_HINT_REQUIRE_QUESTION_TEXT", "1")
+            and not _looks_like_question_ocr_reference(ocr_reference)
+        ):
+            ocr_reference = ""
 
     if user_hint.strip():
         uh = user_hint.strip()
@@ -2026,6 +2096,18 @@ def segment_and_extract(
         )
     else:
         user_context = ""
+
+    if ocr_reference:
+        user_context += (
+            "\n\nSECONDARY OCR REFERENCE — A dedicated OCR engine read parts of the same page(s) as:\n"
+            f'"""\n{ocr_reference}\n"""\n'
+            "This OCR reference is incomplete and may mostly contain handwritten working while omitting printed question stems. "
+            "Do NOT use OCR absence as evidence that a printed question_text or parent_stem is blank. "
+            "Always read question_text and parent_stem from the image itself. "
+            "Use OCR only as a secondary check for visible handwritten calculation lines, numeric tokens, symbols, and question labels. "
+            "The image remains authoritative: copy the student's visible handwriting verbatim, do not invent missing work, "
+            "and if OCR conflicts with clearly visible ink or printed text, trust the image.\n"
+        )
 
     if stitched:
         multi_page_note = (
@@ -2086,16 +2168,17 @@ def segment_and_extract(
     # 收取并行 OCR 结果（按页拼接）
     ocr_text = ""
     if ocr_futures:
-        parts: list[str] = []
-        for i, fut in enumerate(ocr_futures):
+        for i, fut in ocr_futures:
+            if i in ocr_text_by_page:
+                continue
             try:
                 t = fut.result(timeout=30) or ""
             except Exception as e:
                 logging.getLogger("pipeline.segmenter").warning("OCR page %d failed: %s", i + 1, e)
                 t = ""
-            if t:
-                parts.append(f"--- Page {i + 1} ---\n{t}")
-        ocr_text = "\n\n".join(parts)
+            if t.strip():
+                ocr_text_by_page[i] = t.strip()
+        ocr_text = _format_ocr_reference(ocr_text_by_page, max_chars=0)
         if ocr_pool is not None:
             ocr_pool.shutdown(wait=False)
 

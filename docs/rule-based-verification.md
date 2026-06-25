@@ -29,16 +29,20 @@ Final result
 - `utils/image_utils.py`
 - `parser/pdf_parser.py`
 
-整页作业进入系统后，Vision 模型一次性完成切题和字段提取，输出题号、题干、学生答案、步骤、分值、页码、图表类型等结构化 JSON。与此同时，专用 OCR 模型并行抽取纯文本。
+整页作业进入系统后，Vision/Base 模型一次性完成切题和字段提取，输出题号、题干、学生答案、步骤、分值、页码、图表类型等结构化 JSON。与此同时，专用 OCR 模型并行抽取纯文本。当前 OCR 首选 Mathpix Convert API；如果 Mathpix 没返回可用结果，可回到本地 tesseract 作为弱探针。
 
 关键取舍：
 
 - 切题和提取合并成一次 Vision 调用，避免 N+1 次模型请求。
 - OCR 与 Vision 并行，墙钟时间接近 `max(vision, ocr)`，而不是两者相加。
-- OCR 只用于保守纠正数字和符号，不重写结构。
+- Mathpix OCR 只有在文本看起来包含真实题干语言（如 find/show/calculate/given 等）时，才作为二级 prompt hint 交给 segmenter。
+- 如果 OCR 只读到公式和手写步骤，系统不会把它当作题干来源，避免模型因为 OCR 没题干而清空或编造 `question_text`。
+- OCR 只用于保守复核数字、符号、题号和手写步骤，不重写结构；旧的全量 OCR 数字回写仍由 `SEGMENT_OCR_REWRITE` 显式开关控制，默认关闭。
 - Segmenter prompt 明确要求「照抄学生错误」，不能帮学生把错题修正成标准答案。
 
 为什么这很重要：数学题里数字识别错一个，整题就可能错；但如果 OCR 擅自重排结构，也会破坏题目和答案的对应关系。因此 OCR 是校验层，不是主控层。
+
+2026-06-25 的回归对比使用 `static/demo-input.jpg` 这张手写-only 图验证了这个 guard：未加 guard 时，Mathpix 手写 OCR 会干扰主模型，导致空题干或 final answer 被截成中间方程；加 guard 后，3 次新路径均保留空题干（符合图片无打印题干的事实），并且 d 问交点答案 `x = -1/6, y = 9/8` 命中 3/3，旧路径为 2/3。完整本地报告保存在 `reports/ocr_compare/demo_input_guarded_stability_20260625_115621.json`。
 
 ## 2. 路由规则：先判断风险，再决定是否升级
 

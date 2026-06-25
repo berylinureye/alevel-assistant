@@ -18,18 +18,30 @@
 
 ## 核心架构
 
-```text
-Upload image/PDF
-  -> preprocessing / PDF page selection
-  -> segment + OCR cross-check
-  -> paper/context resolver
-  -> base grading
-  -> routing rules decide escalation
-  -> multi-agent voting when needed
-  -> deterministic verifiers
-  -> feedback / solution / practice recommendation
-  -> React UI with agent_step progress
+```mermaid
+flowchart TD
+  A["Upload image / PDF"] --> B["Preprocessing / PDF page selection"]
+  B --> C["Vision/base segmenter"]
+  B --> O["Mathpix Convert API OCR"]
+  O --> G{"OCR guard"}
+  G -->|"question-language detected"| H["Secondary OCR hint"]
+  G -->|"handwriting-only / weak OCR"| I["Keep OCR as audit evidence"]
+  H --> C
+  I --> C
+  O -->|"empty / failed"| L["Local tesseract fallback"]
+  L --> I
+  C --> D["Paper / context resolver"]
+  D --> E["Base grading"]
+  E --> F{"Routing rules"}
+  F -->|"low risk"| J["Final grading"]
+  F -->|"needs review"| K["Review / multi-agent voting"]
+  K --> J
+  J --> M["Deterministic verifiers"]
+  M --> N["Feedback / solution / practice recommendation"]
+  N --> P["React UI with agent_step progress"]
 ```
+
+OCR 的当前策略是保守协作：Mathpix 先作为专用 OCR 读图；只有当 OCR 文本看起来包含真实题干语言时，才作为二级参考进入 segmenter prompt。若 Mathpix 只读到手写步骤或失败，则不让它改写主抽取结果，保留本地 tesseract 作为兜底探针。
 
 主要目录：
 
