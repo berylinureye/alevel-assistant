@@ -42,7 +42,7 @@ flowchart LR
 
 需要展开时看这两个链接：
 
-- [详细后端流程、快速手机模式和 benchmark](docs/runtime-pipeline-and-benchmarks.md)
+- [详细后端流程、快速首题模式和 benchmark](docs/runtime-pipeline-and-benchmarks.md)
 - [模型路由、OCR 链路和环境变量](docs/model-routing-and-ocr-chain.md)
 
 ## 本地运行
