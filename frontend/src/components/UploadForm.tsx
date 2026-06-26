@@ -280,19 +280,29 @@ function ImagesPreview({
     0,
   )
   const statusText = processingCount > 0
-    ? `可先开始；后台预识别 ${readyCount}/${files.length}`
+    ? `后台正在预识别 ${readyCount}/${files.length}`
     : readyCount > 0
-      ? `已提前识别 ${readyCount}/${files.length}，可开始批改`
-      : '可开始批改，系统将在下一步统一识别'
+      ? `已提前识别 ${readyCount}/${files.length}`
+      : '确认后将统一识别'
+  const currentFile = files[index]
+  const currentStatus = prepareStates.get(currentFile)?.status
+  const currentStatusText =
+    currentStatus === 'ready'
+      ? '这一页已完成预识别'
+      : currentStatus === 'processing'
+        ? '这一页正在预识别'
+        : currentStatus === 'failed'
+          ? '这一页会在批改时重新识别'
+          : '这一页将在批改时识别'
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-black/80 px-3 py-2.5 sm:px-4 sm:py-3">
+    <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950 text-white">
+      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-neutral-950/95 px-3 py-3 sm:px-5">
         <button
           type="button"
           onClick={onBack}
           title="返回重新上传"
-          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-white/20 px-2.5 py-1.5 text-[13px] hover:bg-white/10 sm:text-sm"
+          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-white/20 px-3 py-2 text-[13px] transition hover:bg-white/10 sm:text-sm"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
             <polyline points="15 18 9 12 15 6" />
@@ -300,78 +310,140 @@ function ImagesPreview({
           <span className="hidden sm:inline">返回重新上传</span>
           <span className="sm:hidden">返回</span>
         </button>
-        <div className="min-w-0 flex-1 text-center text-white/90">
-          <div className="text-[13px] leading-tight sm:text-sm">
-            {index + 1} / {files.length}
+        <div className="min-w-0 flex-1 text-center">
+          <div className="text-sm font-semibold leading-tight text-white sm:text-base">
+            请确认图片清楚后再开始批改
           </div>
-          <div className="mt-0.5 truncate text-[11px] leading-tight text-white/60 sm:text-xs">
-            {statusText}
+          <div className="mt-1 truncate text-xs leading-tight text-white/55">
+            第 {index + 1} / {files.length} 张 · {statusText}
           </div>
         </div>
         <button
           type="button"
           onClick={onStart}
-          title="开始批改"
-          className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-slate-950 px-3 py-1.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-black sm:px-4 sm:text-sm"
+          title="确认清楚，开始批改"
+          className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-white px-3 py-2 text-[13px] font-semibold text-slate-950 shadow-sm transition hover:bg-slate-200 sm:px-4 sm:text-sm"
         >
-          开始批改
+          确认清楚，开始批改
         </button>
       </header>
 
       <main
-        className="relative flex flex-1 items-center justify-center overflow-hidden"
+        className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] bg-neutral-950 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-1"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        {index > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              setZoomed(false)
-              setIndex((i) => Math.max(0, i - 1))
-            }}
-            aria-label="上一张"
-            className="absolute left-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 sm:flex"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-        )}
-        {index < files.length - 1 && (
-          <button
-            type="button"
-            onClick={() => {
-              setZoomed(false)
-              setIndex((i) => Math.min(files.length - 1, i + 1))
-            }}
-            aria-label="下一张"
-            className="absolute right-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 sm:flex"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        )}
+        <div className="relative min-h-0 overflow-hidden bg-black">
+          {index > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setZoomed(false)
+                setIndex((i) => Math.max(0, i - 1))
+              }}
+              aria-label="上一张"
+              className="absolute left-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 sm:flex"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+          )}
+          {index < files.length - 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                setZoomed(false)
+                setIndex((i) => Math.min(files.length - 1, i + 1))
+              }}
+              aria-label="下一张"
+              className="absolute right-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 sm:flex"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          )}
 
-        <div
-          className={`h-full w-full ${zoomed ? 'overflow-auto' : 'flex items-center justify-center'}`}
-        >
-          <img
-            src={urls[index]}
-            alt=""
+          <div className={`h-full w-full ${zoomed ? 'overflow-auto p-4' : 'flex items-center justify-center p-3 sm:p-6'}`}>
+            <img
+              src={urls[index]}
+              alt={`待确认图片 ${index + 1}`}
+              onClick={() => setZoomed((z) => !z)}
+              className={
+                zoomed
+                  ? 'mx-auto max-w-none cursor-zoom-out rounded-sm'
+                  : 'max-h-full max-w-full cursor-zoom-in rounded-sm object-contain shadow-2xl shadow-black'
+              }
+            />
+          </div>
+
+          <button
+            type="button"
             onClick={() => setZoomed((z) => !z)}
-            className={
-              zoomed
-                ? 'max-w-none cursor-zoom-out'
-                : 'max-h-full max-w-full cursor-zoom-in object-contain'
-            }
-          />
+            className="absolute bottom-4 right-4 rounded-md bg-white/90 px-3 py-2 text-xs font-semibold text-slate-950 shadow transition hover:bg-white"
+          >
+            {zoomed ? '适应屏幕' : '放大查看'}
+          </button>
         </div>
+
+        <aside className="border-t border-white/10 bg-neutral-950 px-4 py-4 lg:border-l lg:border-t-0 lg:px-5">
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/45">确认页</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">这张图够清楚吗？</h2>
+              <p className="mt-2 text-sm leading-6 text-white/65">
+                请确认题干、学生步骤和页边没有被截掉。看不清时先返回重传，比批改后再发现识别错更省时间。
+              </p>
+            </div>
+
+            <div className="rounded-md border border-white/10 bg-white/[0.04] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-white">当前页</span>
+                <span className="rounded-full bg-white/10 px-2 py-1 text-xs text-white/75">{currentStatusText}</span>
+              </div>
+              <p className="mt-2 truncate text-xs text-white/45" title={currentFile?.name}>
+                {currentFile?.name || `第 ${index + 1} 张`}
+              </p>
+            </div>
+
+            <ul className="space-y-2 text-sm leading-6 text-white/70">
+              <li className="flex gap-2">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/70" />
+                <span>题号、题干和分值都在画面里。</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/70" />
+                <span>学生答案没有反光、模糊或被手遮住。</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/70" />
+                <span>跨页题请确认上下文页都已上传。</span>
+              </li>
+            </ul>
+
+            <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+              <button
+                type="button"
+                onClick={onBack}
+                className="inline-flex flex-1 items-center justify-center rounded-md border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                返回重传
+              </button>
+              <button
+                type="button"
+                onClick={onStart}
+                className="inline-flex flex-1 items-center justify-center rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
+              >
+                确认清楚，开始批改
+              </button>
+            </div>
+          </div>
+        </aside>
       </main>
 
       {files.length > 1 && (
-        <footer className="shrink-0 border-t border-white/10 bg-black/80 px-4 py-2">
+        <footer className="shrink-0 border-t border-white/10 bg-neutral-950 px-4 py-2">
           <div className="flex flex-wrap items-center justify-center gap-1.5">
             {files.map((f, i) => {
               const s = prepareStates.get(f)?.status
