@@ -45,9 +45,60 @@ TOPIC_ALIASES: dict[str, str] = {
     "integral": "integration_p1",
     "normal distribution": "normal_distribution",
     "probability": "probability",
+    "expected value": "expectation",
+    "e(x)": "expectation",
+    "expectation": "expectation",
+    "standard deviation": "standard_deviation",
+    "sd": "standard_deviation",
+    "var(x)": "variance_of_drv",
+    "variance of x": "variance_of_drv",
+    "variance of random variable": "variance_of_drv",
+    "variance of discrete random variable": "variance_of_drv",
     "kinematics": "kinematics",
     "forces": "forces_and_equilibrium",
     "complex numbers": "complex_numbers",
+}
+
+GENERIC_STATISTICS_ALIASES = {
+    "statistics",
+    "statistic",
+    "stats",
+    "probability and statistics",
+    "probability statistics",
+    "probability & statistics",
+}
+
+MULTI_TOPIC_ALIASES: dict[str, list[str]] = {
+    "mean and variance": ["mean", "variance"],
+    "mean variance": ["mean", "variance"],
+    "mean and standard deviation": ["mean", "standard_deviation"],
+    "mean standard deviation": ["mean", "standard_deviation"],
+    "expectation and variance": ["expectation", "variance_of_drv"],
+    "expected value and variance": ["expectation", "variance_of_drv"],
+}
+
+STATISTICS_FALLBACK_TOPICS_BY_PAPER: dict[int, list[str]] = {
+    5: [
+        "discrete_random_variables",
+        "normal_distribution",
+        "probability",
+        "measures_of_variation",
+        "measures_of_central_tendency",
+        "binomial_distribution",
+        "geometric_distribution",
+        "permutations_and_combinations",
+        "representation_of_data",
+    ],
+    6: [
+        "poisson_distribution",
+        "linear_combinations",
+        "continuous_random_variables",
+        "sampling_and_estimation",
+        "hypothesis_testing",
+        "normal_distribution",
+        "discrete_random_variables",
+        "probability",
+    ],
 }
 
 BROAD_TOPIC_BY_PAPER: dict[str, dict[int, str]] = {
@@ -175,19 +226,40 @@ def _has_invalid_explicit_paper(value: Optional[int]) -> bool:
 
 
 def _normalise_topic_key(value: object, paper_num: Optional[int]) -> Optional[str]:
+    keys = _normalise_topic_keys(value, paper_num)
+    return keys[0] if keys else None
+
+
+def _statistics_fallback_topics(paper_num: Optional[int]) -> list[str]:
+    if paper_num in STATISTICS_FALLBACK_TOPICS_BY_PAPER:
+        return list(STATISTICS_FALLBACK_TOPICS_BY_PAPER[paper_num])
+
+    ordered: list[str] = []
+    for num in (5, 6):
+        for topic in STATISTICS_FALLBACK_TOPICS_BY_PAPER[num]:
+            if topic not in ordered:
+                ordered.append(topic)
+    return ordered
+
+
+def _normalise_topic_keys(value: object, paper_num: Optional[int]) -> list[str]:
     text = str(value or "").strip()
     if not text:
-        return None
+        return []
     lower = re.sub(r"[_-]+", " ", text.lower())
     lower = re.sub(r"\s+", " ", lower).strip()
+    if lower in GENERIC_STATISTICS_ALIASES:
+        return _statistics_fallback_topics(paper_num)
+    if lower in MULTI_TOPIC_ALIASES:
+        return list(MULTI_TOPIC_ALIASES[lower])
     if lower in BROAD_TOPIC_BY_PAPER and paper_num in BROAD_TOPIC_BY_PAPER[lower]:
-        return BROAD_TOPIC_BY_PAPER[lower][paper_num]
+        return [BROAD_TOPIC_BY_PAPER[lower][paper_num]]
     if lower in TOPIC_ALIASES:
-        return TOPIC_ALIASES[lower]
+        return [TOPIC_ALIASES[lower]]
     snake = lower.replace(" ", "_")
     if snake:
-        return snake
-    return None
+        return [snake]
+    return []
 
 
 def _parent_topics_for_subtopic(value: str, paper_num: Optional[int]) -> list[str]:
@@ -198,13 +270,16 @@ def _parent_topics_for_subtopic(value: str, paper_num: Optional[int]) -> list[st
 
 
 def _candidate_topic_keys(value: object, paper_num: Optional[int]) -> list[str]:
-    topic = _normalise_topic_key(value, paper_num)
-    if not topic:
+    topics = _normalise_topic_keys(value, paper_num)
+    if not topics:
         return []
-    ordered = [topic]
-    for parent in _parent_topics_for_subtopic(topic, paper_num):
-        if parent not in ordered:
-            ordered.append(parent)
+    ordered: list[str] = []
+    for topic in topics:
+        if topic not in ordered:
+            ordered.append(topic)
+        for parent in _parent_topics_for_subtopic(topic, paper_num):
+            if parent not in ordered:
+                ordered.append(parent)
     return ordered
 
 

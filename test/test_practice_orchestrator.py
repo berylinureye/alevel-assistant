@@ -164,6 +164,64 @@ def test_derives_precise_subtopic_then_parent_topic_from_known_taxonomy():
     assert derive_candidate_topics(req)[:2] == ["equation_of_circle", "coordinate_geometry"]
 
 
+def test_generic_statistics_expands_to_paper5_9709_topics():
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="past_paper",
+            paper_num=5,
+            match_confidence="low",
+            confirmed_by_user=True,
+            grading_route="past_paper_mark_scheme",
+        ),
+        priority_topics=[{"topic": "statistics"}],
+        knowledge_tags_summary={"statistics": 1},
+        questions=[
+            {
+                "question_number": "6(b)",
+                "score": 0,
+                "full_score": 3,
+                "is_correct": False,
+                "error_type": "incomplete_working",
+                "knowledge_tags": ["statistics"],
+            }
+        ],
+    )
+
+    topics = derive_candidate_topics(req)
+
+    assert "statistics" not in topics
+    assert topics[:4] == [
+        "discrete_random_variables",
+        "normal_distribution",
+        "probability",
+        "measures_of_variation",
+    ]
+
+
+def test_statistics_micro_tags_keep_specific_tag_then_parent_topic():
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="past_paper",
+            paper_num=5,
+            match_confidence="high",
+            confirmed_by_user=True,
+            grading_route="past_paper_mark_scheme",
+        ),
+        priority_topics=[],
+        knowledge_tags_summary={"standard deviation": 2, "expected value": 1},
+        questions=[],
+    )
+
+    topics = derive_candidate_topics(req)
+
+    assert topics[:4] == [
+        "standard_deviation",
+        "measures_of_variation",
+        "expectation",
+        "discrete_random_variables",
+    ]
+
+
 def test_query_recommendations_passes_fine_tag_to_questionbank(monkeypatch):
     class FakeConnection:
         def close(self):

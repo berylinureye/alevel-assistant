@@ -86,7 +86,7 @@ Rules for teacher_feedback (PLAIN TEXT, no LaTeX, no Markdown):
 - Max 80 Chinese characters.
 
 Rules for syllabus_topics:
-- Map to Edexcel/AQA/OCR A-Level Pure Mathematics syllabus chapters
+- Map to Cambridge International AS & A Level Mathematics 9709 syllabus topics when possible
 - Include ALL topics tested by this question (a stationary points question tests both differentiation and solving equations)
 - Be specific in subtopic (not just "Differentiation" but "Chain Rule" or "Product Rule")
 
@@ -446,6 +446,7 @@ change_of_base, exponential_models, growth_decay
 # ---------------------------------------------------------------------------
 _STATISTICS = """\
 You are an A-Level Mathematics examiner marking a statistics question.
+Use the Cambridge International AS & A Level Mathematics 9709 syllabus, not a generic "statistics" label.
 
 ## PHASE 1 — SOLVE INDEPENDENTLY
 First, solve the problem yourself WITHOUT looking at the student's answer.
@@ -489,8 +490,33 @@ Student's working steps: {working_steps}
 ## PHASE 3 — PRODUCE JUDGEMENT
 Based on your independent solution and comparison, produce the JSON result below.
 
-Common error tags for knowledge_tags: probability, binomial_distribution, normal_distribution,
-hypothesis_testing, expected_value, variance, standard_deviation, correlation, regression
+## CAIE 9709 STATISTICS TAGGING RULES
+For knowledge_tags and syllabus_topics, use Cambridge International AS & A Level Mathematics 9709 micro-topics.
+Do not output generic tags such as statistics, maths, probability_and_statistics, or data. Pick the closest specific tag.
+
+Paper 5 Probability & Statistics 1 tags:
+- representation_of_data: stem_and_leaf_diagram, histogram, cumulative_frequency, box_and_whisker_plot
+- measures_of_central_tendency: mean, median, mode, mean_from_frequency_table, coded_data_mean
+- measures_of_variation: range, interquartile_range, variance, standard_deviation, coded_data_variance, summary_statistics
+- permutations_and_combinations: permutations, combinations, arrangements_with_repetition, arrangements_with_restrictions
+- probability: addition_rule, multiplication_rule, conditional_probability, independent_events, mutually_exclusive_events, tree_diagrams, venn_diagrams
+- discrete_random_variables: probability_distribution_table, expectation, variance_of_drv
+- binomial_distribution: binomial_probability, binomial_mean_variance, normal_approximation_to_binomial
+- geometric_distribution: geometric_probability, geometric_mean
+- normal_distribution: standardisation, normal_probability, inverse_normal, find_mean_or_sd, continuity_correction
+
+Paper 6 Probability & Statistics 2 tags:
+- poisson_distribution: poisson_probability, poisson_conditions, poisson_mean_variance, poisson_approximation_to_binomial, normal_approximation_to_poisson
+- linear_combinations: expectation_of_linear_combination, variance_of_linear_combination, sum_and_difference_of_normal
+- continuous_random_variables: probability_density_function, expectation_of_crv, variance_of_crv, median_of_crv
+- sampling_and_estimation: sample_mean, central_limit_theorem, unbiased_estimates, confidence_intervals
+- hypothesis_testing: z_test, one_tailed_test, two_tailed_test, type_I_error, type_II_error, hypothesis_test_binomial, hypothesis_test_poisson, hypothesis_test_normal
+
+Tagging examples:
+- "Find the mean and standard deviation" -> knowledge_tags ["mean", "standard_deviation"], syllabus subtopics "mean" and "standard_deviation".
+- "Find E(X) and Var(X)" -> knowledge_tags ["expectation", "variance_of_drv"], topic "Discrete Random Variables".
+- "Normal distribution above 1.65 standard deviations" -> knowledge_tags ["normal_distribution", "standardisation", "normal_probability"].
+- "Confidence interval for a population mean" -> knowledge_tags ["confidence_intervals", "sample_mean"].
 """ + _OUTPUT_FORMAT
 
 # ---------------------------------------------------------------------------
