@@ -233,6 +233,7 @@ function ImagesPreview({
 }) {
   const [index, setIndex] = useState(0)
   const [zoomed, setZoomed] = useState(false)
+  const [previewFailedIndexes, setPreviewFailedIndexes] = useState<Set<number>>(() => new Set())
   const touchStartX = useRef<number | null>(null)
 
   const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
@@ -286,6 +287,8 @@ function ImagesPreview({
       : '确认后将统一识别'
   const currentFile = files[index]
   const currentStatus = prepareStates.get(currentFile)?.status
+  const currentPreviewFailed = previewFailedIndexes.has(index)
+  const currentExt = currentFile?.name.split('.').pop()?.toUpperCase() || currentFile?.type || '图片'
   const currentStatusText =
     currentStatus === 'ready'
       ? '这一页已完成预识别'
@@ -366,25 +369,43 @@ function ImagesPreview({
           )}
 
           <div className={`h-full w-full ${zoomed ? 'overflow-auto p-4' : 'flex items-center justify-center p-3 sm:p-6'}`}>
-            <img
-              src={urls[index]}
-              alt={`待确认图片 ${index + 1}`}
-              onClick={() => setZoomed((z) => !z)}
-              className={
-                zoomed
-                  ? 'mx-auto max-w-none cursor-zoom-out rounded-sm'
-                  : 'max-h-full max-w-full cursor-zoom-in rounded-sm object-contain shadow-2xl shadow-black'
-              }
-            />
+            {currentPreviewFailed ? (
+              <div className="mx-auto flex max-w-md flex-col items-center rounded-lg border border-white/10 bg-white/[0.04] px-6 py-8 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white/10 text-sm font-semibold text-white">
+                  {currentExt}
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-white">这张图片暂时无法预览</h3>
+                <p className="mt-2 text-sm leading-6 text-white/65">
+                  浏览器没有成功渲染这张图。常见原因是 HEIC、相册原图或特殊编码格式。你可以返回重传 JPG/PNG，或继续批改让后端尝试识别。
+                </p>
+              </div>
+            ) : (
+              <img
+                src={urls[index]}
+                alt={`第 ${index + 1} 张待确认图片`}
+                onClick={() => setZoomed((z) => !z)}
+                onError={() => {
+                  setZoomed(false)
+                  setPreviewFailedIndexes((prev) => new Set(prev).add(index))
+                }}
+                className={
+                  zoomed
+                    ? 'mx-auto max-w-none cursor-zoom-out rounded-sm'
+                    : 'max-h-full max-w-full cursor-zoom-in rounded-sm object-contain shadow-2xl shadow-black'
+                }
+              />
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setZoomed((z) => !z)}
-            className="absolute bottom-4 right-4 rounded-md bg-white/90 px-3 py-2 text-xs font-semibold text-slate-950 shadow transition hover:bg-white"
-          >
-            {zoomed ? '适应屏幕' : '放大查看'}
-          </button>
+          {!currentPreviewFailed ? (
+            <button
+              type="button"
+              onClick={() => setZoomed((z) => !z)}
+              className="absolute bottom-4 right-4 rounded-md bg-white/90 px-3 py-2 text-xs font-semibold text-slate-950 shadow transition hover:bg-white"
+            >
+              {zoomed ? '适应屏幕' : '放大查看'}
+            </button>
+          ) : null}
         </div>
 
         <aside className="border-t border-white/10 bg-neutral-950 px-4 py-4 lg:border-l lg:border-t-0 lg:px-5">
@@ -393,7 +414,9 @@ function ImagesPreview({
               <p className="text-xs font-semibold uppercase tracking-wide text-white/45">确认页</p>
               <h2 className="mt-1 text-lg font-semibold text-white">这张图够清楚吗？</h2>
               <p className="mt-2 text-sm leading-6 text-white/65">
-                请确认题干、学生步骤和页边没有被截掉。看不清时先返回重传，比批改后再发现识别错更省时间。
+                {currentPreviewFailed
+                  ? '当前文件无法在浏览器里预览。建议优先返回重传 JPG/PNG；如果原图很清楚，也可以继续让后端尝试识别。'
+                  : '请确认题干、学生步骤和页边没有被截掉。看不清时先返回重传，比批改后再发现识别错更省时间。'}
               </p>
             </div>
 
