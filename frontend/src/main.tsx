@@ -9,6 +9,7 @@ import { QuestionCardReplayPage } from './pages/QuestionCardReplayPage.tsx'
 import { LargePdfReplayPage } from './pages/LargePdfReplayPage.tsx'
 import { PracticeRecommendationsReplayPage } from './pages/PracticeRecommendationsReplayPage.tsx'
 import { UIDirectionDemosPage } from './pages/UIDirectionDemosPage.tsx'
+import { OpenDesignDemosPage } from './pages/OpenDesignDemosPage.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { trackEvent } from './api/client'
 
@@ -54,6 +55,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/__practice-recommendations-replay" element={<PracticeRecommendationsReplayPage />} />
           ) : null}
           <Route path="/__ui-direction-demos" element={<UIDirectionDemosPage />} />
+          <Route path="/__open-design-demos" element={<OpenDesignDemosPage />} />
           <Route path="/landing" element={<LandingPage />} />
           <Route path="*" element={<App />} />
         </Routes>

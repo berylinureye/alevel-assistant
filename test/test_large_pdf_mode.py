@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from api.routes import MAX_PAGES_PER_REQUEST, router
+from api.routes import MAX_PAGES_PER_REQUEST, _digital_past_paper_extracted, router
 from api.large_pdf import build_large_pdf_user_hint, prepare_large_pdf
 from api.large_pdf_cache import get as get_large_pdf_session
 from questionbank.mineru_adapter import MinerUNotAvailableError, MinerUResult
@@ -204,6 +204,39 @@ def test_prepare_large_pdf_marks_default_process_pages() -> None:
     assert 1 not in default_pages
     assert 20 not in default_pages
     assert default_pages == list(range(2, 20))
+
+
+def test_digital_past_paper_fallback_uses_questionbank_text() -> None:
+    prepared = prepare_large_pdf(
+        FIXTURE_PDF,
+        filename=FIXTURE_PDF.name,
+        upload_intent="full_past_paper_pdf",
+    )
+    session = get_large_pdf_session(prepared["pdf_id"])
+    assert session is not None
+
+    extracted = _digital_past_paper_extracted(
+        session=session,
+        selected_pages=[2, 3],
+        paper_context={
+            **prepared["paper_resolution"],
+            "catalog_match": {
+                "subject": "9709",
+                "year": 2022,
+                "session": "s",
+                "paper_num": 1,
+                "variant": 1,
+            },
+        },
+    )
+
+    assert extracted is not None
+    assert [item["question_number"] for item in extracted[:3]] == ["1(a)", "1(b)", "2"]
+    assert all(item["student_answer"] == "" for item in extracted)
+    assert all(item["working_steps"] == [] for item in extracted)
+    assert all(item["grading_route"] == "past_paper_mark_scheme" for item in extracted)
+    assert all(item["digital_past_paper_fallback"] is True for item in extracted)
+    assert "Express $x^2 - 8x + 11$" in extracted[0]["question_text"]
 
 
 def test_large_pdf_session_keeps_pdf_path_internal() -> None:

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { consumePendingUpload } from './pages/landing/lib/pendingUpload'
-import { analyzeHomeworkStreaming, isAbortError, mergePageSummaries } from './api/client'
+import { analyzeHomeworkStreaming, isAbortError, mergePageSummaries, trackEvent } from './api/client'
 import type { AgentStepData, QuestionExtractedData } from './api/client'
 import type { AnalyzeRequest, PageSummary as PageSummaryType, QuestionResult } from './types'
 import { UploadForm } from './components/UploadForm'
@@ -185,6 +185,8 @@ export default function App() {
   const [dismissPanelVersion, setDismissPanelVersion] = useState(0)
   const imageUrlsRef = useRef<string[]>([])
   const analysisAbortControllerRef = useRef<AbortController | null>(null)
+  const analysisStartedAtRef = useRef<number | null>(null)
+  const resultSeenTrackedRef = useRef(false)
 
   useEffect(() => {
     return () => {
@@ -240,6 +242,11 @@ export default function App() {
 
   const handleCancelAnalysis = useCallback(() => {
     if (!loading) return
+    trackEvent('ui_analysis_cancelled', {
+      session_id: sessionId,
+      question_count: questions.length,
+      total_expected: totalExpectedRef.current,
+    })
     analysisAbortControllerRef.current?.abort()
     analysisAbortControllerRef.current = null
     setLoading(false)
@@ -259,7 +266,7 @@ export default function App() {
       },
     ])
     setDismissPanelVersion((v) => v + 1)
-  }, [loading])
+  }, [loading, questions.length, sessionId])
 
   const handleSubmit = async (req: AnalyzeRequest) => {
     analysisAbortControllerRef.current?.abort()
@@ -286,7 +293,10 @@ export default function App() {
     setAnalysisProgress(null)
     setQuestionFilter('all')
     setExpandedByQuestionId({})
-    setSessionId(newSessionId())
+    const nextSessionId = newSessionId()
+    setSessionId(nextSessionId)
+    analysisStartedAtRef.current = Date.now()
+    resultSeenTrackedRef.current = false
 
     const collectedQuestions: QuestionResult[] = []
     let collectedSummary: PageSummaryType | null = null
@@ -303,6 +313,19 @@ export default function App() {
         },
         onQuestion: (q) => {
           collectedQuestions.push(q)
+          if (!resultSeenTrackedRef.current) {
+            resultSeenTrackedRef.current = true
+            const elapsed = analysisStartedAtRef.current ? Date.now() - analysisStartedAtRef.current : 0
+            trackEvent('ui_result_seen', {
+              session_id: nextSessionId,
+              time_to_first_question_ms: elapsed,
+              question_count: 1,
+              upload_intent: req.upload_intent,
+              page_count: req.images.length,
+              grading_route: q.grading_route,
+              needs_review: q.needs_review,
+            }, elapsed)
+          }
           setQuestions((prev) => {
             const next = [...prev, q]
             const exp = Math.max(totalExpectedRef.current, next.length)
@@ -320,6 +343,13 @@ export default function App() {
         onDone: () => {
           setLoading(false)
           setAnalysisProgress(null)
+          trackEvent('ui_analysis_done', {
+            session_id: nextSessionId,
+            question_count: collectedQuestions.length,
+            expected_count: totalExpectedRef.current,
+            upload_intent: req.upload_intent,
+            page_count: req.images.length,
+          })
         },
         onImageStart: (current, total) => {
           setAnalysisProgress({ current, total })
@@ -395,6 +425,12 @@ export default function App() {
         return
       }
       const message = err instanceof Error ? err.message : String(err)
+      trackEvent('ui_analysis_error', {
+        session_id: nextSessionId,
+        message: message.slice(0, 300),
+        upload_intent: req.upload_intent,
+        page_count: req.images.length,
+      })
       setError(message)
       setLoading(false)
       setAnalysisProgress(null)
@@ -479,7 +515,27 @@ export default function App() {
       ...prev,
       [questionNumber]: !prev[questionNumber],
     }))
-  }, [])
+    const question = questions.find((q) => q.question_number === questionNumber)
+    if (!expandedByQuestionId[questionNumber]) {
+      trackEvent('ui_question_expanded', {
+        session_id: sessionId,
+        question_number: questionNumber,
+        status: question?.unanswered
+          ? 'unanswered'
+          : question?.needs_review || question?.error_type === 'pending_review'
+            ? 'needs_review'
+            : question?.is_correct
+              ? 'correct'
+              : (question?.score ?? 0) > 0
+                ? 'partial'
+                : 'wrong',
+        needs_review: Boolean(question?.needs_review),
+        score: question?.score,
+        full_score: question?.full_score,
+        grading_route: question?.grading_route,
+      })
+    }
+  }, [expandedByQuestionId, questions, sessionId])
 
   const showSummaryBlock = summary !== null
   const currentHash = typeof window === 'undefined' ? routeHash : window.location.hash

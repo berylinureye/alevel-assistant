@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import re
+import time
 from typing import Literal, Optional
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from api.feedback import log_ai_event
 from questionbank.database import ensure_db, get_random_questions
 from questionbank.models import QuestionBankItem
 from scraper.taxonomy import PAPER_TOPICS
@@ -134,6 +136,30 @@ practice_orchestrator_router = APIRouter(
     prefix="/practice-orchestrator",
     tags=["practice-orchestrator"],
 )
+
+
+def _with_recommendation_event(
+    req: PracticeRecommendationRequest,
+    response: PracticeRecommendationResponse,
+    started_at: float,
+) -> PracticeRecommendationResponse:
+    recommendations = response.recommendations or []
+    log_ai_event(
+        "practice_recommendation_served",
+        int((time.perf_counter() - started_at) * 1000),
+        {
+            "mode": response.recommendation_mode,
+            "detected_topic": response.detected_topic,
+            "paper_num": response.paper_num,
+            "match_confidence": response.match_confidence,
+            "recommendation_count": len(recommendations),
+            "real_question_count": sum(1 for item in recommendations if item.question_id is not None),
+            "confirmed_by_user": req.context.confirmed_by_user,
+            "upload_intent": req.context.upload_intent,
+            "grading_route": req.context.grading_route,
+        },
+    )
+    return response
 
 
 def normalise_paper_num(value: Optional[int]) -> Optional[int]:
@@ -372,41 +398,54 @@ def _query_recommendations(req: PracticeRecommendationRequest, topic: str) -> li
 
 @practice_orchestrator_router.post("/recommendations", response_model=PracticeRecommendationResponse)
 async def recommend_practice(req: PracticeRecommendationRequest) -> PracticeRecommendationResponse:
+    started_at = time.perf_counter()
     topics = derive_candidate_topics(req)
     topic = topics[0] if topics else None
     has_review_risk = any(q.needs_review for q in req.questions)
     paper_num = normalise_paper_num(req.context.paper_num)
     if _has_invalid_explicit_paper(req.context.paper_num):
-        return PracticeRecommendationResponse(
-            recommendation_mode="none",
-            message="当前推荐题库只支持 P1-P6。请确认 paper number 后再生成同 paper 练习。",
-            detected_topic=topic,
-            paper_num=None,
-            match_confidence=req.context.match_confidence,
-            recommendations=[],
+        return _with_recommendation_event(
+            req,
+            PracticeRecommendationResponse(
+                recommendation_mode="none",
+                message="当前推荐题库只支持 P1-P6。请确认 paper number 后再生成同 paper 练习。",
+                detected_topic=topic,
+                paper_num=None,
+                match_confidence=req.context.match_confidence,
+                recommendations=[],
+            ),
+            started_at,
         )
 
     mode = choose_recommendation_mode(req.context, has_topic=topic is not None, has_review_risk=has_review_risk)
 
     if mode == "none" or topic is None:
-        return PracticeRecommendationResponse(
-            recommendation_mode="none",
-            message="这次我还不能可靠地为你匹配练习题。建议先确认题目来源，或上传 Past Paper 封面/题目页。",
-            detected_topic=topic,
-            paper_num=paper_num,
-            match_confidence=req.context.match_confidence,
-            recommendations=[],
+        return _with_recommendation_event(
+            req,
+            PracticeRecommendationResponse(
+                recommendation_mode="none",
+                message="这次我还不能可靠地为你匹配练习题。建议先确认题目来源，或上传 Past Paper 封面/题目页。",
+                detected_topic=topic,
+                paper_num=paper_num,
+                match_confidence=req.context.match_confidence,
+                recommendations=[],
+            ),
+            started_at,
         )
 
     if mode == "ask_first":
         label = f"P{paper_num} " if paper_num else ""
-        return PracticeRecommendationResponse(
-            recommendation_mode="ask_first",
-            message=f"我检测到这题像是 {label}{topic}。要不要再做 2-3 道类似题来确认这个点？",
-            detected_topic=topic,
-            paper_num=paper_num,
-            match_confidence=req.context.match_confidence,
-            recommendations=[],
+        return _with_recommendation_event(
+            req,
+            PracticeRecommendationResponse(
+                recommendation_mode="ask_first",
+                message=f"我检测到这题像是 {label}{topic}。要不要再做 2-3 道类似题来确认这个点？",
+                detected_topic=topic,
+                paper_num=paper_num,
+                match_confidence=req.context.match_confidence,
+                recommendations=[],
+            ),
+            started_at,
         )
 
     recommendations: list[PracticeRecommendation] = []
@@ -436,20 +475,28 @@ async def recommend_practice(req: PracticeRecommendationRequest) -> PracticeReco
                 recommended_topic = candidate_topic
 
     if not recommendations:
-        return PracticeRecommendationResponse(
-            recommendation_mode="none",
-            message=f"我找到了薄弱点 {topic}，但当前题库没有可用的真实候选题。",
-            detected_topic=topic,
-            paper_num=paper_num,
-            match_confidence=req.context.match_confidence,
-            recommendations=[],
+        return _with_recommendation_event(
+            req,
+            PracticeRecommendationResponse(
+                recommendation_mode="none",
+                message=f"我找到了薄弱点 {topic}，但当前题库没有可用的真实候选题。",
+                detected_topic=topic,
+                paper_num=paper_num,
+                match_confidence=req.context.match_confidence,
+                recommendations=[],
+            ),
+            started_at,
         )
 
-    return PracticeRecommendationResponse(
-        recommendation_mode="auto",
-        message="已根据本次批改结果推荐真实题库练习。",
-        detected_topic=recommended_topic or topic,
-        paper_num=paper_num,
-        match_confidence=req.context.match_confidence,
-        recommendations=recommendations[: req.count],
+    return _with_recommendation_event(
+        req,
+        PracticeRecommendationResponse(
+            recommendation_mode="auto",
+            message="已根据本次批改结果推荐真实题库练习。",
+            detected_topic=recommended_topic or topic,
+            paper_num=paper_num,
+            match_confidence=req.context.match_confidence,
+            recommendations=recommendations[: req.count],
+        ),
+        started_at,
     )

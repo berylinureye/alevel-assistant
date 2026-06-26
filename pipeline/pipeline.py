@@ -5,6 +5,8 @@ import logging
 import os
 import queue
 import re
+import threading
+import time
 from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError, as_completed
 from typing import Any
@@ -38,6 +40,14 @@ STREAM_PARENT_STEM_CHARS = 900
 STREAM_STUDENT_ANSWER_CHARS = 600
 STREAM_WORKING_STEP_CHARS = 280
 STREAM_MAX_WORKING_STEPS = 8
+FAST_BATCH_QUESTION_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_QUESTION_TIMEOUT_SECONDS", "120"))
+FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS", "25"))
+FAST_BATCH_MAX_WORKERS = int(os.environ.get("FAST_BATCH_MAX_WORKERS", "16"))
+FAST_BATCH_PREPARE_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_PREPARE_TIMEOUT_SECONDS", "120"))
+FAST_BATCH_PREPARE_MAX_WORKERS = int(os.environ.get("FAST_BATCH_PREPARE_MAX_WORKERS", "10"))
+FAST_BATCH_PARSE_ATTEMPTS = int(os.environ.get("FAST_BATCH_PARSE_ATTEMPTS", "1"))
+FAST_BATCH_REQUEST_RETRIES = int(os.environ.get("FAST_BATCH_REQUEST_RETRIES", "0"))
+DEFAULT_RECOGNITION_TIMEOUT_SECONDS = float(os.environ.get("RECOGNITION_TIMEOUT_SECONDS", "90"))
 
 
 def _clip_stream_text(value: object, max_chars: int) -> str:
@@ -78,6 +88,60 @@ def _stream_question_payload(ext: dict) -> dict[str, Any]:
         "questionbank_question_id": ext.get("questionbank_question_id"),
         "questionbank_match_confidence": ext.get("questionbank_match_confidence"),
     }
+
+
+def _build_fast_batch_timeout_result(
+    extracted: dict,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    qnum = str(extracted.get("question_number", "?"))
+    full_score = float(extracted.get("marks") or 0.0)
+    timeout_label = int(timeout_seconds) if timeout_seconds >= 1 else timeout_seconds
+    grade = GradeResult(
+        question_number=qnum,
+        question_type=QuestionType.unknown,
+        is_correct=False,
+        score=0.0,
+        full_score=full_score,
+        error_type="fast_batch_timeout",
+        knowledge_tags=[],
+        needs_review=True,
+        short_feedback=f"快评模式单题超过 {timeout_label} 秒，已转为需复核。",
+        grading_confidence=0.0,
+        correct_answer=None,
+        syllabus_topics=[],
+        relevant_formulas=[],
+        student_feedback="这题需要老师复核，系统已先返回本次批量上传结果。",
+        teacher_feedback="Fast batch reached the per-question budget; manual review is required.",
+    )
+    record = {
+        "question_number": qnum,
+        "bbox": extracted.get("bbox", []) or [],
+        "question_text": extracted.get("question_text", "") or "",
+        "parent_stem": extracted.get("parent_stem", "") or "",
+        "student_answer": extracted.get("student_answer", "") or "",
+        "working_steps": extracted.get("working_steps", []) or [],
+        "marks": extracted.get("marks", 0),
+        "page": extracted.get("page"),
+        "image_quality": extracted.get("image_quality", "unknown"),
+        "confidence": float(extracted.get("confidence", 0.0) or 0.0),
+        "grading": {
+            **grade.model_dump(),
+            "used_model": "fast_batch_timeout",
+        },
+        "feedback": {
+            "question_number": qnum,
+            "student_feedback": grade.student_feedback or "",
+            "teacher_feedback": grade.teacher_feedback or "",
+        },
+        "solution_text": None,
+        "grading_route": extracted.get("grading_route"),
+        "mark_scheme_confidence": extracted.get("mark_scheme_confidence"),
+        "mark_scheme_context_error": extracted.get("mark_scheme_context_error"),
+        "questionbank_question_id": extracted.get("questionbank_question_id"),
+        "questionbank_match_confidence": extracted.get("questionbank_match_confidence"),
+    }
+    return {"record": record, "grade": grade}
 
 
 def _recognition_timeout_fallback(images: list[Any]) -> list[dict]:
@@ -184,6 +248,79 @@ def _segment_with_grouping(
     return merged
 
 
+def _segment_fast_batch_individual(
+    images: list[Any],
+    vision_client,
+    user_hint: str,
+    ocr_client,
+    *,
+    timeout_seconds: float = FAST_BATCH_PREPARE_TIMEOUT_SECONDS,
+) -> list[dict]:
+    """Fast batch recognition path: identify each page independently in
+    parallel, then stitch cross-page context once. This avoids a single large
+    multi-image vision request becoming the long pole for 10+ photos.
+    """
+    if not images:
+        return []
+
+    def _run_with_timeout(img: Any) -> tuple[list[dict], bool | None]:
+        result: dict[str, Any] = {}
+
+        def _target() -> None:
+            items = segment_and_extract(
+                [img], vision_client, user_hint=user_hint, ocr_client=ocr_client
+            )
+            starts_with_qnum: bool | None = None
+            if ocr_client is not None:
+                try:
+                    from pipeline.segmenter import (
+                        _page_header_text,
+                        page_starts_with_numbered_question,
+                    )
+                    header_text = _page_header_text(img, ocr_client)
+                    starts_with_qnum = page_starts_with_numbered_question(header_text)
+                except Exception:
+                    starts_with_qnum = None
+            result["items"] = items
+            result["starts_with_qnum"] = starts_with_qnum
+
+        thread = threading.Thread(target=_target, daemon=True)
+        thread.start()
+        thread.join(timeout=max(0.1, timeout_seconds))
+        if thread.is_alive():
+            _log.warning("fast_batch page recognition timed out after %.1fs", timeout_seconds)
+            return _recognition_timeout_fallback([img]), None
+        return list(result.get("items") or []), result.get("starts_with_qnum")
+
+    def _run_one(index_and_image: tuple[int, Any]) -> tuple[int, list[dict], bool | None]:
+        idx, img = index_and_image
+        items, starts_with_qnum = _run_with_timeout(img)
+        global_page = idx + 1
+        is_continuation = (idx > 0) and (starts_with_qnum is False)
+        for item in items:
+            item["page"] = global_page
+            if is_continuation:
+                item["_continuation_page"] = True
+        return idx, items, starts_with_qnum
+
+    max_workers = min(len(images), max(1, FAST_BATCH_PREPARE_MAX_WORKERS))
+    results: list[tuple[int, list[dict], bool | None]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        for result in pool.map(_run_one, enumerate(images)):
+            results.append(result)
+
+    merged: list[dict] = []
+    for _idx, items, _starts_with_qnum in sorted(results, key=lambda item: item[0]):
+        merged.extend(items)
+
+    try:
+        from pipeline.segmenter import _attach_parent_stems
+        _attach_parent_stems(merged)
+    except Exception as exc:
+        _log.warning("fast_batch cross-page _attach_parent_stems failed: %s", exc)
+    return merged
+
+
 def _flatten_for_stream(record: dict, feedback_mode: str = "both") -> dict[str, Any]:
     """
     将 pipeline 内部的 record dict 转为与 QuestionResponse 一致的扁平 dict（与 routes._flatten_question 对齐）。
@@ -236,6 +373,57 @@ def _flatten_for_stream(record: dict, feedback_mode: str = "both") -> dict[str, 
             "escalated": bool(grading.get("escalation_reasons", [])),
             "escalation_reasons": grading.get("escalation_reasons", []),
         },
+    }
+
+
+def _build_fast_page_summary(grades: list[GradeResult]) -> dict[str, Any]:
+    correct_count = sum(1 for grade in grades if grade.is_correct)
+    unanswered_count = sum(1 for grade in grades if grade.unanswered or grade.error_type == "unanswered")
+    incorrect_count = sum(1 for grade in grades if not grade.is_correct and not (grade.unanswered or grade.error_type == "unanswered"))
+    review_count = sum(1 for grade in grades if grade.needs_review)
+    score_total = sum(float(grade.score or 0) for grade in grades)
+    full_score_total = sum(float(grade.full_score or 0) for grade in grades)
+
+    error_counts: dict[str, int] = {}
+    tag_counts: dict[str, int] = {}
+    wrong_tag_counts: dict[str, int] = {}
+    for grade in grades:
+        if grade.error_type and grade.error_type not in {"correct", "unknown"}:
+            error_counts[grade.error_type] = error_counts.get(grade.error_type, 0) + 1
+        for tag in grade.knowledge_tags or []:
+            key = str(tag).strip()
+            if not key:
+                continue
+            tag_counts[key] = tag_counts.get(key, 0) + 1
+            if not grade.is_correct:
+                wrong_tag_counts[key] = wrong_tag_counts.get(key, 0) + 1
+
+    priority_topics = [
+        {
+            "topic": topic,
+            "subtopic": None,
+            "chapter": "",
+            "error_count": count,
+            "key_formulas": [],
+        }
+        for topic, count in sorted(wrong_tag_counts.items(), key=lambda item: -item[1])[:3]
+    ]
+
+    return {
+        "total_questions": len(grades),
+        "correct_count": correct_count,
+        "incorrect_count": incorrect_count,
+        "unanswered_count": unanswered_count,
+        "review_count": review_count,
+        "score_total": score_total,
+        "full_score_total": full_score_total,
+        "common_error_types": [
+            error for error, count in sorted(error_counts.items(), key=lambda item: -item[1]) if count >= 2
+        ],
+        "knowledge_tags_summary": tag_counts,
+        "estimated_review_minutes": max(0, incorrect_count * 6 + review_count * 4),
+        "priority_topics": priority_topics,
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。",
     }
 
 
@@ -417,6 +605,8 @@ def _process_one_question(
     progress_queue: queue.Queue | None = None,
     generate_solution_inline: bool = True,
     aggregator_client=None,
+    fallback_feedback_llm: bool = True,
+    fast_batch_mode: bool = False,
 ) -> dict:
     """处理单题：用 segment 阶段已提取的数据，直接批改 + 生成反馈。"""
     qnum = str(extracted.get("question_number", "?"))
@@ -450,6 +640,8 @@ def _process_one_question(
         # 保留 segmenter 产出的 page 字段（跨页识别需要）
         if extracted.get("page") is not None:
             record["page"] = int(extracted["page"])
+        if extracted.get("recognition_timeout"):
+            record["recognition_timeout"] = True
 
         if _is_orphan_subpart_number(qnum) and not question.parent_stem:
             full_score = float(question.marks) if question.marks > 0 else 0.0
@@ -479,6 +671,30 @@ def _process_one_question(
             }
             record["solution_text"] = None
             return {"record": record, "grade": missing_context_grade}
+
+        if extracted.get("recognition_timeout"):
+            timeout_grade = GradeResult(
+                question_number=qnum,
+                question_type=QuestionType.unknown,
+                is_correct=False,
+                score=0.0,
+                full_score=0.0,
+                error_type="recognition_timeout",
+                knowledge_tags=[],
+                needs_review=True,
+                short_feedback="图片识别超过本次快速批改预算。请复核或重新提交更清晰的照片。",
+                grading_confidence=0.0,
+                syllabus_topics=[],
+                relevant_formulas=[],
+            )
+            record["grading"] = timeout_grade.model_dump()
+            record["grading"]["used_model"] = "recognition_timeout"
+            record["feedback"] = {
+                "question_number": qnum,
+                "student_feedback": "- 这张图片识别超时，系统已先返回其他可用结果。\n- 可以单独重传这张图，或换更清晰的照片。",
+                "teacher_feedback": "- Error: recognition_timeout\n- Gap: 快速批量识别未在预算内完成\n- Action: 建议人工复核或单图重试",
+            }
+            return {"record": record, "grade": timeout_grade}
 
         if not question.question_text.strip() and question.confidence < 0.3:
             unreadable_grade = GradeResult(
@@ -605,10 +821,30 @@ def _process_one_question(
                 )
             except GradingError as e:
                 _log.warning("Q%s multi-agent grading failed: %s, falling back to single model", qnum, e)
-                base_grade = grade_question(question, base_client, task=TaskType.grade)
+                if fast_batch_mode:
+                    base_grade = grade_question(
+                        question,
+                        base_client,
+                        task=TaskType.grade,
+                        allow_llm_classification=False,
+                        parse_attempts=FAST_BATCH_PARSE_ATTEMPTS,
+                        request_retries=FAST_BATCH_REQUEST_RETRIES,
+                    )
+                else:
+                    base_grade = grade_question(question, base_client, task=TaskType.grade)
         else:
             _log.info("批改第 %s 题 (base, single model)...", qnum)
-            base_grade = grade_question(question, base_client, task=TaskType.grade)
+            if fast_batch_mode:
+                base_grade = grade_question(
+                    question,
+                    base_client,
+                    task=TaskType.grade,
+                    allow_llm_classification=False,
+                    parse_attempts=FAST_BATCH_PARSE_ATTEMPTS,
+                    request_retries=FAST_BATCH_REQUEST_RETRIES,
+                )
+            else:
+                base_grade = grade_question(question, base_client, task=TaskType.grade)
 
         # --- 安全网 B：提取置信度偏低 + student_answer 基本为空 + LLM 判错 ---
         # 很大概率是 extractor 漏识别（而非学生没写），直接判错会误伤。改判 needs_review。
@@ -691,6 +927,12 @@ def _process_one_question(
                 "question_number": qnum,
                 "student_feedback": final_grade.student_feedback or "",
                 "teacher_feedback": final_grade.teacher_feedback or "",
+            }
+        elif not fallback_feedback_llm:
+            record["feedback"] = {
+                "question_number": qnum,
+                "student_feedback": final_grade.short_feedback or "已生成快评结果。",
+                "teacher_feedback": final_grade.short_feedback or "Fast batch generated a first-pass result.",
             }
         else:
             _log.info("生成反馈第 %s 题 (fallback LLM call)...", qnum)
@@ -787,6 +1029,7 @@ def run_pipeline(
     registry=None,
     prepared_extracted: list[dict] | None = None,
     paper_context: dict | None = None,
+    recognition_timeout_seconds: float | None = None,
 ) -> dict:
     """
     入口函数。支持单图或多图（按阅读顺序的路径列表，用于跨页作业）。
@@ -835,7 +1078,13 @@ def run_pipeline(
                   len(images),
                   vision_client.model_id,
                   ocr_client.model_id if ocr_client else "none")
-        extracted_list = _segment_with_grouping(images, vision_client, user_hint, ocr_client)
+        extracted_list = _segment_with_timeout(
+            images,
+            vision_client,
+            user_hint,
+            ocr_client,
+            DEFAULT_RECOGNITION_TIMEOUT_SECONDS if recognition_timeout_seconds is None else recognition_timeout_seconds,
+        )
         _log.info("识别到 %d 道题 (segmentation: %.1fs)", len(extracted_list), _time.monotonic() - _t0)
 
     _attach_mark_scheme_contexts(extracted_list, paper_context)
@@ -934,6 +1183,7 @@ def run_pipeline_streaming(
     prepared_extracted: list[dict] | None = None,
     paper_context: dict | None = None,
     recognition_timeout_seconds: float | None = None,
+    fast_batch: bool = False,
 ) -> Generator[tuple[str, dict[str, Any]], None, None]:
     """
     流式版本的 run_pipeline。
@@ -951,16 +1201,23 @@ def run_pipeline_streaming(
     vision_client = registry.get(ModelRole.vision, base_client)
     ocr_client = registry.get(ModelRole.ocr)
 
-    # 构建多 agent 批改客户端（只构建一次）
-    try:
-        agent_clients = build_grading_agents()
-    except Exception as e:
-        _log.warning("Multi-agent init failed (%s), falling back to single model", e)
+    if fast_batch:
+        _log.info("fast_batch enabled: using single-model grading, review off, no inline solution")
         agent_clients = None
+        solution_client = None
+        aggregator_client = None
+        review_mode = "off"
+    else:
+        # 构建多 agent 批改客户端（只构建一次）
+        try:
+            agent_clients = build_grading_agents()
+        except Exception as e:
+            _log.warning("Multi-agent init failed (%s), falling back to single model", e)
+            agent_clients = None
 
-    # solution 生成：fallback 走 deepseek-reasoner（深度但慢）；主路径走 aggregator
-    solution_client = _build_solution_client(agent_clients, base_client)
-    aggregator_client = _build_aggregator_client(agent_clients, base_client)
+        # solution 生成：fallback 走 deepseek-reasoner（深度但慢）；主路径走 aggregator
+        solution_client = _build_solution_client(agent_clients, base_client)
+        aggregator_client = _build_aggregator_client(agent_clients, base_client)
 
     if prepared_extracted is not None:
         extracted_list = list(prepared_extracted)
@@ -976,13 +1233,22 @@ def run_pipeline_streaming(
                   len(images),
                   vision_client.model_id,
                   ocr_client.model_id if ocr_client else "none")
-        extracted_list = _segment_with_timeout(
-            images,
-            vision_client,
-            user_hint,
-            ocr_client,
-            recognition_timeout_seconds,
-        )
+        if fast_batch:
+            extracted_list = _segment_fast_batch_individual(
+                images,
+                vision_client,
+                user_hint,
+                ocr_client,
+                timeout_seconds=recognition_timeout_seconds or FAST_BATCH_PREPARE_TIMEOUT_SECONDS,
+            )
+        else:
+            extracted_list = _segment_with_timeout(
+                images,
+                vision_client,
+                user_hint,
+                ocr_client,
+                DEFAULT_RECOGNITION_TIMEOUT_SECONDS if recognition_timeout_seconds is None else recognition_timeout_seconds,
+            )
         _log.info("识别到 %d 道题", len(extracted_list))
 
     _attach_mark_scheme_contexts(extracted_list, paper_context)
@@ -1020,17 +1286,83 @@ def run_pipeline_streaming(
             ext, base_client, review_client, review_mode, grade,
             agent_clients=agent_clients, solution_client=None,
             progress_queue=result_queue,
+            fallback_feedback_llm=not fast_batch,
+            fast_batch_mode=fast_batch,
         )
         result_queue.put((idx, result))
 
-    max_workers = min(len(extracted_list), 4)
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        for i, ext in enumerate(extracted_list):
-            pool.submit(_worker, ext, i)
+    def _handle_question_result(idx: int, result: dict) -> tuple[str, dict[str, Any]]:
+        questions_out[idx] = result["record"]
+        grade_obj = result.get("grade")
+        if grade_obj:
+            all_grades.append(grade_obj)
+            # 收集需要生成解题思路的信息
+            rec = result["record"]
+            is_unanswered = (grade_obj.error_type == "unanswered"
+                             or not rec.get("student_answer", "").strip())
+            # 对做错的题 + 未作答的题自动生成解题思路；做对的题按需前端调用 /explain-question
+            if solution_client is not None and not grade_obj.is_correct:
+                q = QuestionData(
+                    question_number=rec["question_number"],
+                    bbox=rec["bbox"],
+                    question_text=rec.get("question_text", ""),
+                    student_answer=rec.get("student_answer", ""),
+                    working_steps=rec.get("working_steps", []),
+                    parent_stem=rec.get("parent_stem"),
+                    image_quality=rec.get("image_quality", "good"),
+                    confidence=rec.get("confidence", 0.9),
+                )
+                solution_tasks.append((idx, q, grade_obj))
 
-        questions_received = 0
-        while questions_received < len(extracted_list):
-            item = result_queue.get()
+        return (
+            "question",
+            _flatten_for_stream(result["record"], feedback_mode=feedback_mode),
+        )
+
+    def _consume_question_results(
+        pending_idxs: set[int],
+        deadline: float | None = None,
+        preserve_order: bool = False,
+        after_first_result_seconds: float | None = None,
+    ) -> Generator[tuple[str, dict[str, Any]], None, None]:
+        buffered_results: dict[int, dict] = {}
+        next_ordered_idx = min(pending_idxs) if pending_idxs else 0
+        effective_deadline = deadline
+        first_result_seen = False
+
+        def _tighten_after_first_result() -> None:
+            nonlocal effective_deadline, first_result_seen
+            if first_result_seen or after_first_result_seconds is None:
+                return
+            first_result_seen = True
+            if after_first_result_seconds <= 0:
+                return
+            after_first_deadline = time.monotonic() + after_first_result_seconds
+            if effective_deadline is None:
+                effective_deadline = after_first_deadline
+            else:
+                effective_deadline = min(effective_deadline, after_first_deadline)
+
+        def _drain_ordered() -> Generator[tuple[str, dict[str, Any]], None, None]:
+            nonlocal next_ordered_idx
+            while next_ordered_idx in buffered_results:
+                result = buffered_results.pop(next_ordered_idx)
+                if next_ordered_idx in pending_idxs:
+                    pending_idxs.remove(next_ordered_idx)
+                yield _handle_question_result(next_ordered_idx, result)
+                next_ordered_idx += 1
+
+        while pending_idxs:
+            timeout: float | None = None
+            if effective_deadline is not None:
+                timeout = max(0.0, effective_deadline - time.monotonic())
+                if timeout <= 0:
+                    break
+            try:
+                item = result_queue.get(timeout=timeout)
+            except queue.Empty:
+                break
+
             event_type, data = item
 
             # agent_progress / agent_step 事件直接转发
@@ -1039,35 +1371,66 @@ def run_pipeline_streaming(
                 continue
 
             # 正常的题目结果（event_type 是 int index）
-            idx = event_type
-            result = data
-            questions_out[idx] = result["record"]
-            grade_obj = result.get("grade")
-            if grade_obj:
-                all_grades.append(grade_obj)
-                # 收集需要生成解题思路的信息
-                rec = result["record"]
-                is_unanswered = (grade_obj.error_type == "unanswered"
-                                 or not rec.get("student_answer", "").strip())
-                # 对做错的题 + 未作答的题自动生成解题思路；做对的题按需前端调用 /explain-question
-                if solution_client is not None and not grade_obj.is_correct:
-                    q = QuestionData(
-                        question_number=rec["question_number"],
-                        bbox=rec["bbox"],
-                        question_text=rec.get("question_text", ""),
-                        student_answer=rec.get("student_answer", ""),
-                        working_steps=rec.get("working_steps", []),
-                        parent_stem=rec.get("parent_stem"),
-                        image_quality=rec.get("image_quality", "good"),
-                        confidence=rec.get("confidence", 0.9),
-                    )
-                    solution_tasks.append((idx, q, grade_obj))
+            idx = int(event_type)
+            if idx not in pending_idxs:
+                continue
+            if preserve_order:
+                buffered_results[idx] = data
+                for event in _drain_ordered():
+                    _tighten_after_first_result()
+                    yield event
+            else:
+                pending_idxs.remove(idx)
+                event = _handle_question_result(idx, data)
+                _tighten_after_first_result()
+                yield event
 
-            yield (
-                "question",
-                _flatten_for_stream(result["record"], feedback_mode=feedback_mode),
+    max_workers = min(
+        len(extracted_list),
+        max(1, FAST_BATCH_MAX_WORKERS if fast_batch else 4),
+    )
+    pending_idxs = set(range(len(extracted_list)))
+
+    if fast_batch:
+        limiter = threading.Semaphore(max_workers)
+
+        def _daemon_worker(ext: dict, idx: int) -> None:
+            with limiter:
+                _worker(ext, idx)
+
+        for i, ext in enumerate(extracted_list):
+            threading.Thread(target=_daemon_worker, args=(ext, i), daemon=True).start()
+
+        deadline = time.monotonic() + max(0.1, FAST_BATCH_QUESTION_TIMEOUT_SECONDS)
+        yield from _consume_question_results(
+            pending_idxs,
+            deadline=deadline,
+            after_first_result_seconds=FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS,
+        )
+        if pending_idxs:
+            emitted_count = len(extracted_list) - len(pending_idxs)
+            timeout_seconds = (
+                FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS
+                if emitted_count > 0
+                else FAST_BATCH_QUESTION_TIMEOUT_SECONDS
             )
-            questions_received += 1
+            _log.warning(
+                "fast_batch timed out %d/%d questions after %.1fs",
+                len(pending_idxs),
+                len(extracted_list),
+                timeout_seconds,
+            )
+            for idx in sorted(pending_idxs):
+                fallback = _build_fast_batch_timeout_result(
+                    extracted_list[idx],
+                    timeout_seconds,
+                )
+                yield _handle_question_result(idx, fallback)
+    else:
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            for i, ext in enumerate(extracted_list):
+                pool.submit(_worker, ext, i)
+            yield from _consume_question_results(pending_idxs, preserve_order=True)
 
     # --- 并行生成解题思路（不阻塞题目结果的发送）---
     if solution_tasks and (solution_client is not None or aggregator_client is not None):
@@ -1110,16 +1473,20 @@ def run_pipeline_streaming(
                     yield ("solution", {"question_number": qnum, "solution_text": None})
 
     if grade and all_grades:
-        _log.info("生成整页汇总(流式)...")
-        feedbacks = [
-            q["feedback"] for q in questions_out if q is not None and "feedback" in q
-        ]
-        summary = build_summary(
-            grades=all_grades,
-            feedbacks=feedbacks,
-            client=base_client,
-        )
-        yield ("summary", summary.model_dump())
+        if fast_batch:
+            _log.info("生成整页快评汇总(流式)...")
+            yield ("summary", _build_fast_page_summary(all_grades))
+        else:
+            _log.info("生成整页汇总(流式)...")
+            feedbacks = [
+                q["feedback"] for q in questions_out if q is not None and "feedback" in q
+            ]
+            summary = build_summary(
+                grades=all_grades,
+                feedbacks=feedbacks,
+                client=base_client,
+            )
+            yield ("summary", summary.model_dump())
     else:
         yield ("summary", {})
 

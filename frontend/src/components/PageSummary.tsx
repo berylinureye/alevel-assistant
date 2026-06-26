@@ -21,10 +21,15 @@ function gradeFromPercent(p: number): string {
 }
 
 function ringStrokeClass(pct: number): string {
-  if (pct >= 80) return 'stroke-green-500'
-  if (pct >= 60) return 'stroke-blue-500'
-  if (pct >= 40) return 'stroke-orange-500'
-  return 'stroke-red-500'
+  return pct >= 100 ? 'stroke-emerald-500' : 'stroke-rose-400'
+}
+
+function scoreRateTextClass(pct: number): string {
+  return pct >= 100 ? 'text-emerald-800' : 'text-rose-700'
+}
+
+function scoreRateBadgeClass(pct: number): string {
+  return pct >= 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
 }
 
 /** SVG 环形进度条（得分率），圆心为百分比与等级标签 */
@@ -70,8 +75,8 @@ function ScoreRing({ percentage, grade }: { percentage: number; grade: string })
       </svg>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5">
         <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-bold tabular-nums text-slate-950">{displayPct}%</span>
-          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-700">
+          <span className={`text-2xl font-bold tabular-nums ${scoreRateTextClass(clamped)}`}>{displayPct}%</span>
+          <span className={`rounded-md px-1.5 py-0.5 text-xs font-semibold ${scoreRateBadgeClass(clamped)}`}>
             {grade}
           </span>
         </div>
@@ -89,7 +94,7 @@ export interface PageSummaryProps {
 function PageSummarySkeleton() {
   return (
     <section
-      className="animate-pulse rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+      className="animate-pulse rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       aria-busy="true"
       aria-label="学习诊断加载中"
     >
@@ -142,72 +147,75 @@ export function PageSummary({ summary }: PageSummaryProps) {
       : '保持当前节奏，建议用同主题 exam-style 题巩固速度和书写规范。'
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Diagnosis</p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-950">学习诊断</h2>
+          <h2 className="mt-1 text-xl font-semibold text-slate-950">详细报告</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            展开分数依据、薄弱主题和教师总评。
+          </p>
         </div>
-        <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+        <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">
           预计复习 {summary.estimated_review_minutes ?? 0} 分钟
         </span>
       </div>
 
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
+      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:gap-8">
         <ScoreRing percentage={ratePct} grade={grade} />
         <div className="min-w-0 flex-1">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">本次表现</p>
+          <p className="mb-1 text-xs font-semibold text-slate-500">本次表现</p>
           <div className="text-2xl font-bold text-slate-950">
             {summary.score_total} / {summary.full_score_total}
             <span className="ml-2 text-sm font-normal text-slate-500">分</span>
           </div>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{nextAction}</p>
         </div>
       </div>
 
       <div className={`mb-6 grid gap-3 ${ua > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center">
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-center">
           <div className="text-2xl font-bold text-slate-950">{summary.total_questions}</div>
           <div className="text-xs text-slate-500">总题数</div>
         </div>
-        <div className="rounded-md border border-green-100 bg-green-50 px-3 py-2 text-center">
-          <div className="text-2xl font-bold text-green-700">{summary.correct_count}</div>
-          <div className="text-xs text-green-800/80">正确</div>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-center">
+          <div className="text-2xl font-bold text-slate-950">{summary.correct_count}</div>
+          <div className="text-xs text-slate-500">正确</div>
         </div>
-        <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-center">
-          <div className="text-2xl font-bold text-red-700">{summary.incorrect_count}</div>
-          <div className="text-xs text-red-800/80">错误</div>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-center">
+          <div className="text-2xl font-bold text-slate-950">{summary.incorrect_count}</div>
+          <div className="text-xs text-slate-500">错误</div>
         </div>
         {ua > 0 ? (
-          <div className="rounded-md border border-slate-200 bg-slate-100 px-3 py-2 text-center">
+          <div className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-center">
             <div className="text-2xl font-bold text-slate-600">{ua}</div>
             <div className="text-xs text-slate-500">未作答</div>
           </div>
         ) : null}
       </div>
 
-      <div className="mb-6 grid gap-4 border-y border-slate-100 py-4 md:grid-cols-2">
+      <div className="mb-6 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-2">
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">主要问题</h3>
+          <h3 className="text-xs font-semibold text-slate-500">主要问题</h3>
           <p className="mt-2 text-sm leading-6 text-slate-800">{topProblem}</p>
           {(summary.review_count ?? 0) > 0 ? (
-            <p className="mt-1 text-xs text-amber-700">
+            <p className="mt-1 text-xs text-slate-600">
               有 {summary.review_count} 道题建议老师复核，优先看这些题。
             </p>
           ) : null}
         </div>
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">下一步</h3>
+          <h3 className="text-xs font-semibold text-slate-500">下一步</h3>
           <p className="mt-2 text-sm leading-6 text-slate-800">{nextAction}</p>
         </div>
       </div>
 
       <div className="mb-6">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">答题情况分布</h3>
+        <h3 className="mb-2 text-xs font-semibold text-slate-500">答题情况分布</h3>
         {countSum > 0 ? (
           <div className="flex h-10 w-full overflow-hidden rounded-lg text-xs font-semibold text-white shadow-inner">
             {c > 0 ? (
               <div
-                className="flex min-w-0 items-center justify-center bg-green-600 px-1"
+                className="flex min-w-0 items-center justify-center bg-slate-950 px-1"
                 style={{ flex: c }}
               >
                 {c}
@@ -215,7 +223,7 @@ export function PageSummary({ summary }: PageSummaryProps) {
             ) : null}
             {ic > 0 ? (
               <div
-                className="flex min-w-0 items-center justify-center bg-red-600 px-1"
+                className="flex min-w-0 items-center justify-center bg-slate-600 px-1"
                 style={{ flex: ic }}
               >
                 {ic}
@@ -262,10 +270,10 @@ export function PageSummary({ summary }: PageSummaryProps) {
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">优先复习主题</h3>
           <div className="space-y-2">
             {summary.priority_topics.slice(0, 3).map((topic, idx) => (
-              <div key={`${topic.chapter}-${topic.topic}-${topic.subtopic}-${idx}`} className="rounded-md border border-amber-100 bg-amber-50/70 px-3 py-2">
+              <div key={`${topic.chapter}-${topic.topic}-${topic.subtopic}-${idx}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                 <p className="text-sm font-medium text-slate-950">
                   {topic.subtopic || topic.topic || '未命名主题'}
-                  <span className="ml-2 text-xs font-normal text-amber-700">
+                  <span className="ml-2 text-xs font-normal text-slate-500">
                     错题 {topic.error_count} 道
                   </span>
                 </p>

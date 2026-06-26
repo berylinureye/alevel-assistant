@@ -1,0 +1,282 @@
+{
+  "count": 30,
+  "category_counts": {
+    "normal": 10,
+    "low_clarity": 5,
+    "tilted_shadow": 5,
+    "cross_page": 5,
+    "blank_edge": 5
+  },
+  "items": [
+    {
+      "index": 1,
+      "filename": "01_normal_demo-input.jpg",
+      "category": "normal",
+      "source": "static/demo-input.jpg",
+      "width": 1653,
+      "height": 930,
+      "size_bytes": 67876
+    },
+    {
+      "index": 2,
+      "filename": "02_normal_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "category": "normal",
+      "source": "test/IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 623222
+    },
+    {
+      "index": 3,
+      "filename": "03_low_clarity_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "category": "low_clarity",
+      "source": "test/IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 240791
+    },
+    {
+      "index": 4,
+      "filename": "04_tilted_shadow_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "category": "tilted_shadow",
+      "source": "test/IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+      "width": 2004,
+      "height": 2548,
+      "size_bytes": 640462
+    },
+    {
+      "index": 5,
+      "filename": "05_cross_page_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "category": "cross_page",
+      "source": "test/IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 461143
+    },
+    {
+      "index": 6,
+      "filename": "06_blank_edge_微信图片_20260407170227_46_4.jpg",
+      "category": "blank_edge",
+      "source": "test/微信图片_20260407170227_46_4.jpg",
+      "width": 1280,
+      "height": 1707,
+      "size_bytes": 14924
+    },
+    {
+      "index": 7,
+      "filename": "07_normal_微信图片_20260407164318_22_1047.jpg",
+      "category": "normal",
+      "source": "test/微信图片_20260407164318_22_1047.jpg",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 478923
+    },
+    {
+      "index": 8,
+      "filename": "08_normal_微信图片_20260407170127_45_4.jpg",
+      "category": "normal",
+      "source": "test/微信图片_20260407170127_45_4.jpg",
+      "width": 1280,
+      "height": 1707,
+      "size_bytes": 148282
+    },
+    {
+      "index": 9,
+      "filename": "09_low_clarity_demo-input.jpg",
+      "category": "low_clarity",
+      "source": "static/demo-input.jpg",
+      "width": 1653,
+      "height": 930,
+      "size_bytes": 38349
+    },
+    {
+      "index": 10,
+      "filename": "10_tilted_shadow_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "category": "tilted_shadow",
+      "source": "test/IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+      "width": 1924,
+      "height": 2492,
+      "size_bytes": 618466
+    },
+    {
+      "index": 11,
+      "filename": "11_cross_page_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "category": "cross_page",
+      "source": "test/IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 454878
+    },
+    {
+      "index": 12,
+      "filename": "12_blank_edge_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "category": "blank_edge",
+      "source": "test/IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 28581
+    },
+    {
+      "index": 13,
+      "filename": "13_normal_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "category": "normal",
+      "source": "test/IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 604612
+    },
+    {
+      "index": 14,
+      "filename": "14_normal_微信图片_20260407170227_46_4.jpg",
+      "category": "normal",
+      "source": "test/微信图片_20260407170227_46_4.jpg",
+      "width": 1280,
+      "height": 1707,
+      "size_bytes": 187694
+    },
+    {
+      "index": 15,
+      "filename": "15_low_clarity_微信图片_20260407164318_22_1047.jpg",
+      "category": "low_clarity",
+      "source": "test/微信图片_20260407164318_22_1047.jpg",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 219025
+    },
+    {
+      "index": 16,
+      "filename": "16_tilted_shadow_微信图片_20260407170127_45_4.jpg",
+      "category": "tilted_shadow",
+      "source": "test/微信图片_20260407170127_45_4.jpg",
+      "width": 1424,
+      "height": 1813,
+      "size_bytes": 212209
+    },
+    {
+      "index": 17,
+      "filename": "17_cross_page_demo-input.jpg",
+      "category": "cross_page",
+      "source": "static/demo-input.jpg",
+      "width": 1653,
+      "height": 930,
+      "size_bytes": 51005
+    },
+    {
+      "index": 18,
+      "filename": "18_blank_edge_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "category": "blank_edge",
+      "source": "test/IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 28581
+    },
+    {
+      "index": 19,
+      "filename": "19_normal_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "category": "normal",
+      "source": "test/IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 575713
+    },
+    {
+      "index": 20,
+      "filename": "20_normal_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "category": "normal",
+      "source": "test/IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 631465
+    },
+    {
+      "index": 21,
+      "filename": "21_low_clarity_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "category": "low_clarity",
+      "source": "test/IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 258850
+    },
+    {
+      "index": 22,
+      "filename": "22_tilted_shadow_微信图片_20260407170227_46_4.jpg",
+      "category": "tilted_shadow",
+      "source": "test/微信图片_20260407170227_46_4.jpg",
+      "width": 1368,
+      "height": 1773,
+      "size_bytes": 258026
+    },
+    {
+      "index": 23,
+      "filename": "23_cross_page_微信图片_20260407164318_22_1047.jpg",
+      "category": "cross_page",
+      "source": "test/微信图片_20260407164318_22_1047.jpg",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 387142
+    },
+    {
+      "index": 24,
+      "filename": "24_blank_edge_微信图片_20260407170127_45_4.jpg",
+      "category": "blank_edge",
+      "source": "test/微信图片_20260407170127_45_4.jpg",
+      "width": 1280,
+      "height": 1707,
+      "size_bytes": 14924
+    },
+    {
+      "index": 25,
+      "filename": "25_normal_demo-input.jpg",
+      "category": "normal",
+      "source": "static/demo-input.jpg",
+      "width": 1653,
+      "height": 930,
+      "size_bytes": 67876
+    },
+    {
+      "index": 26,
+      "filename": "26_normal_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "category": "normal",
+      "source": "test/IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 623222
+    },
+    {
+      "index": 27,
+      "filename": "27_low_clarity_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "category": "low_clarity",
+      "source": "test/IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 240791
+    },
+    {
+      "index": 28,
+      "filename": "28_tilted_shadow_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "category": "tilted_shadow",
+      "source": "test/IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+      "width": 2004,
+      "height": 2548,
+      "size_bytes": 640462
+    },
+    {
+      "index": 29,
+      "filename": "29_cross_page_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "category": "cross_page",
+      "source": "test/IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+      "width": 1800,
+      "height": 2400,
+      "size_bytes": 461143
+    },
+    {
+      "index": 30,
+      "filename": "30_blank_edge_微信图片_20260407170227_46_4.jpg",
+      "category": "blank_edge",
+      "source": "test/微信图片_20260407170227_46_4.jpg",
+      "width": 1280,
+      "height": 1707,
+      "size_bytes": 14924
+    }
+  ]
+}

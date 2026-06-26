@@ -1371,6 +1371,8 @@ def _drop_empty_fallback_items(results: list[dict]) -> None:
     log = logging.getLogger("pipeline.segmenter")
     to_remove: list[int] = []
     for i, item in enumerate(results):
+        if item.get("recognition_timeout"):
+            continue
         if str(item.get("question_text") or "").strip():
             continue
         if str(item.get("student_answer") or "").strip():

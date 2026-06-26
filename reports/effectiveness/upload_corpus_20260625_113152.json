@@ -1,0 +1,573 @@
+{
+  "status": "success",
+  "generated_at": "2026-06-25 11:31:52",
+  "input_dir": "test",
+  "settings": {
+    "api_base": "http://127.0.0.1:8001",
+    "repeat": 1,
+    "max_concurrency": 1,
+    "tracked_events": true
+  },
+  "asset_summary": {
+    "count": 17,
+    "by_kind": {
+      "pdf": 4,
+      "image": 13
+    },
+    "assets": [
+      {
+        "path": "test/9709_s22_qp_11.pdf",
+        "kind": "pdf",
+        "size_bytes": 97094
+      },
+      {
+        "path": "test/9709_s22_qp_41.pdf",
+        "kind": "pdf",
+        "size_bytes": 91803
+      },
+      {
+        "path": "test/9709_s22_qp_51.pdf",
+        "kind": "pdf",
+        "size_bytes": 84553
+      },
+      {
+        "path": "test/IMG_9158.HEIC",
+        "kind": "image",
+        "size_bytes": 1793979
+      },
+      {
+        "path": "test/IMG_9160.HEIC",
+        "kind": "image",
+        "size_bytes": 1546377
+      },
+      {
+        "path": "test/IMG_9161.HEIC",
+        "kind": "image",
+        "size_bytes": 1826178
+      },
+      {
+        "path": "test/IMG_9702.HEIC",
+        "kind": "image",
+        "size_bytes": 1676318
+      },
+      {
+        "path": "test/IMG_9711.HEIC",
+        "kind": "image",
+        "size_bytes": 1789340
+      },
+      {
+        "path": "test/IMG_9712.HEIC",
+        "kind": "image",
+        "size_bytes": 1904873
+      },
+      {
+        "path": "test/IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "test/IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+        "kind": "image",
+        "size_bytes": 2120642
+      },
+      {
+        "path": "test/IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+        "kind": "image",
+        "size_bytes": 2125701
+      },
+      {
+        "path": "test/IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+        "kind": "image",
+        "size_bytes": 2020136
+      },
+      {
+        "path": "test/Lesson2-Coordinate geometry 11.pdf",
+        "kind": "pdf",
+        "size_bytes": 4381401
+      },
+      {
+        "path": "test/微信图片_20260407164318_22_1047.jpg",
+        "kind": "image",
+        "size_bytes": 5336858
+      },
+      {
+        "path": "test/微信图片_20260407170127_45_4.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "test/微信图片_20260407170227_46_4.jpg",
+        "kind": "image",
+        "size_bytes": 171885
+      }
+    ]
+  },
+  "effectiveness": {
+    "overall_score": 100,
+    "overall_status": "pass",
+    "metrics": {
+      "upload_success_rate": {
+        "label": "上传成功率",
+        "value": 1.0,
+        "target": 0.95,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "parse_success_rate": {
+        "label": "可解析率",
+        "value": 1.0,
+        "target": 0.9,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "readable_question_rate": {
+        "label": "可读题目率",
+        "value": 1.0,
+        "target": 0.85,
+        "status": "pass",
+        "sample_size": 14,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "image_end_to_end_p95_ms": {
+        "label": "图片端到端 P95",
+        "value": null,
+        "target": 60000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "pdf_end_to_end_p95_ms": {
+        "label": "PDF 端到端 P95",
+        "value": null,
+        "target": 90000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "first_question_p95_ms": {
+        "label": "首题返回 P95",
+        "value": 2590,
+        "target": 30000,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "ten_image_batch_p95_ms": {
+        "label": "10 图一次上传 P95",
+        "value": 36263,
+        "target": 60000,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "ms",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "recognition_timeout_count": {
+        "label": "识别超时题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 14,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "unreadable_question_count": {
+        "label": "不可读题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 14,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "fast_batch_timeout_count": {
+        "label": "快批超时题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 14,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "marked_correctness_match_rate": {
+        "label": "标注正确性一致率",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "marked_score_match_rate": {
+        "label": "标注精确分数一致率",
+        "value": null,
+        "target": 0.85,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_relevance_rate": {
+        "label": "标注推荐相关性",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_real_hit_rate": {
+        "label": "推荐真实题库命中率",
+        "value": null,
+        "target": 1.0,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "paper_compliance_rate": {
+        "label": "Paper 合规率",
+        "value": null,
+        "target": 1.0,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "repeat_question_count_stability": {
+        "label": "重复运行题目数稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "repeat_recommendation_mode_stability": {
+        "label": "重复运行推荐模式稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      }
+    },
+    "failures": [],
+    "summary": {
+      "records": 1,
+      "successful_records": 1,
+      "parsed_records": 1,
+      "asset_count": 1,
+      "question_error_counts": {
+        "unanswered": 1,
+        "pending_review": 1,
+        "correct": 5,
+        "incomplete_working": 3,
+        "unknown": 3,
+        "wrong_rule": 1
+      }
+    }
+  },
+  "records": [
+    {
+      "asset_path": "prepared-batch:test/IMG_9158.HEIC,test/IMG_9160.HEIC,test/IMG_9161.HEIC,test/IMG_9702.HEIC,test/IMG_9711.HEIC,test/IMG_9712.HEIC,test/IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG,test/IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG,test/IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG,test/IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+      "filename": "prepared_batch_10_images",
+      "filenames": [
+        "IMG_9158.HEIC",
+        "IMG_9160.HEIC",
+        "IMG_9161.HEIC",
+        "IMG_9702.HEIC",
+        "IMG_9711.HEIC",
+        "IMG_9712.HEIC",
+        "IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+        "IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+        "IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+        "IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG"
+      ],
+      "kind": "image_batch_prepared",
+      "batch_size": 10,
+      "size_bytes": 18944974,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 36263,
+      "prepare_elapsed_ms": 22367,
+      "analyze_elapsed_ms": 13895,
+      "first_question_ms": 2590,
+      "question_count": 14,
+      "question_error_counts": {
+        "unanswered": 1,
+        "pending_review": 1,
+        "correct": 5,
+        "incomplete_working": 3,
+        "unknown": 3,
+        "wrong_rule": 1
+      },
+      "prepared": [
+        {
+          "filename": "IMG_9158.HEIC",
+          "upload_id": "dce37a4ce8ee441581695d40f1175561",
+          "question_count": 1
+        },
+        {
+          "filename": "IMG_9160.HEIC",
+          "upload_id": "9b7f34391c68445c967f4458567f3118",
+          "question_count": 1
+        },
+        {
+          "filename": "IMG_9161.HEIC",
+          "upload_id": "f483ea05a70144548982fd7a7520ac5e",
+          "question_count": 1
+        },
+        {
+          "filename": "IMG_9702.HEIC",
+          "upload_id": "46ce552087e745e7a577ff3761738a30",
+          "question_count": 2
+        },
+        {
+          "filename": "IMG_9711.HEIC",
+          "upload_id": "06b5e72ddd9045e5807ef0ed68122392",
+          "question_count": 2
+        },
+        {
+          "filename": "IMG_9712.HEIC",
+          "upload_id": "f78660a6afb94759914d982548e922a6",
+          "question_count": 1
+        },
+        {
+          "filename": "IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+          "upload_id": "f92acd47b0204cb38b23ec57537124bf",
+          "question_count": 2
+        },
+        {
+          "filename": "IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+          "upload_id": "b34871beff714ba098dd8cfa9d7cf1d5",
+          "question_count": 5
+        },
+        {
+          "filename": "IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+          "upload_id": "ac39482d4e674df7aff0da0386db2a20",
+          "question_count": 3
+        },
+        {
+          "filename": "IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+          "upload_id": "bf7bf3a40cc14d78bb08d908620fa2c5",
+          "question_count": 2
+        }
+      ],
+      "prepare_concurrency": 10,
+      "fast_batch": true,
+      "questions": [
+        {
+          "question_number": "15(ii)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "3a",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "pending_review",
+          "knowledge_tags": [
+            "diagram:stem_leaf"
+          ]
+        },
+        {
+          "question_number": "3b",
+          "is_correct": true,
+          "score": 3.0,
+          "full_score": 3.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "Median",
+            "Quartiles",
+            "Interquartile Range",
+            "Discrete Data"
+          ]
+        },
+        {
+          "question_number": "11(ii)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "standard_deviation"
+          ]
+        },
+        {
+          "question_number": "6(c)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 3.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "probability",
+            "conditional_probability"
+          ]
+        },
+        {
+          "question_number": "6b",
+          "is_correct": false,
+          "score": 2.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "probability"
+          ]
+        },
+        {
+          "question_number": "3(i)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "unknown",
+          "knowledge_tags": [
+            "Mean",
+            "Measures of Central Tendency"
+          ]
+        },
+        {
+          "question_number": "11(i)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "mean"
+          ]
+        },
+        {
+          "question_number": "3",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "grouped data mean",
+            "estimated mean"
+          ]
+        },
+        {
+          "question_number": "11a",
+          "is_correct": false,
+          "score": 0.5,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "tangent",
+            "intersection",
+            "differentiation"
+          ]
+        },
+        {
+          "question_number": "3(ii)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "unknown",
+          "knowledge_tags": [
+            "variance"
+          ]
+        },
+        {
+          "question_number": "15(i)",
+          "is_correct": false,
+          "score": 2.0,
+          "full_score": 3.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "wrong_rule",
+          "knowledge_tags": [
+            "Median",
+            "Quartiles",
+            "Interquartile Range"
+          ]
+        },
+        {
+          "question_number": "11(b)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "unknown",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "6a",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "hypergeometric distribution",
+            "probability with combinations"
+          ]
+        }
+      ],
+      "summary": {},
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 unanswered。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "unanswered",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260625_113115"
+    }
+  ]
+}

@@ -1,0 +1,448 @@
+{
+  "status": "success",
+  "generated_at": "2026-06-25 22:34:51",
+  "input_dir": "/tmp/alevel-bench-10jpeg",
+  "settings": {
+    "api_base": "http://127.0.0.1:8013",
+    "repeat": 1,
+    "max_concurrency": 1,
+    "tracked_events": true
+  },
+  "asset_summary": {
+    "count": 10,
+    "by_kind": {
+      "image": 10
+    },
+    "assets": [
+      {
+        "path": "/tmp/alevel-bench-10jpeg/06-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/07-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/08-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/09-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/1-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/10-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/2-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/3-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/4-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/5-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      }
+    ]
+  },
+  "effectiveness": {
+    "overall_score": 77,
+    "overall_status": "fail",
+    "metrics": {
+      "upload_success_rate": {
+        "label": "上传成功率",
+        "value": 1.0,
+        "target": 0.95,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "parse_success_rate": {
+        "label": "可解析率",
+        "value": 1.0,
+        "target": 0.9,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "readable_question_rate": {
+        "label": "可读题目率",
+        "value": 1.0,
+        "target": 0.85,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "image_end_to_end_p95_ms": {
+        "label": "图片端到端 P95",
+        "value": null,
+        "target": 60000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "pdf_end_to_end_p95_ms": {
+        "label": "PDF 端到端 P95",
+        "value": null,
+        "target": 90000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "first_question_p95_ms": {
+        "label": "首题返回 P95",
+        "value": 22372,
+        "target": 30000,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "ten_image_batch_p95_ms": {
+        "label": "10 图一次上传 P95",
+        "value": 89491,
+        "target": 60000,
+        "status": "fail",
+        "sample_size": 1,
+        "unit": "ms",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "recognition_timeout_count": {
+        "label": "识别超时题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "unreadable_question_count": {
+        "label": "不可读题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "fast_batch_timeout_count": {
+        "label": "快批超时题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "expected_question_recall_rate": {
+        "label": "标注题目召回率",
+        "value": null,
+        "target": 0.95,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "expected_question_order_rate": {
+        "label": "标注题目顺序一致率",
+        "value": null,
+        "target": 0.95,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "marked_correctness_match_rate": {
+        "label": "标注正确性一致率",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "marked_score_match_rate": {
+        "label": "标注精确分数一致率",
+        "value": null,
+        "target": 0.85,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_relevance_rate": {
+        "label": "标注推荐相关性",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_real_hit_rate": {
+        "label": "推荐真实题库命中率",
+        "value": null,
+        "target": 1.0,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "paper_compliance_rate": {
+        "label": "Paper 合规率",
+        "value": null,
+        "target": 1.0,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "repeat_question_count_stability": {
+        "label": "重复运行题目数稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "repeat_recommendation_mode_stability": {
+        "label": "重复运行推荐模式稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      }
+    },
+    "failures": [
+      {
+        "metric": "ten_image_batch_p95_ms",
+        "label": "10 图一次上传 P95",
+        "value": 89491,
+        "target": 60000
+      }
+    ],
+    "summary": {
+      "records": 1,
+      "successful_records": 1,
+      "parsed_records": 1,
+      "asset_count": 1,
+      "question_error_counts": {
+        "correct": 4
+      }
+    }
+  },
+  "records": [
+    {
+      "asset_path": "prepared-batch:/tmp/alevel-bench-10jpeg/06-phone.jpeg,/tmp/alevel-bench-10jpeg/07-phone.jpeg,/tmp/alevel-bench-10jpeg/08-phone.jpeg,/tmp/alevel-bench-10jpeg/09-phone.jpeg,/tmp/alevel-bench-10jpeg/1-small.jpg,/tmp/alevel-bench-10jpeg/10-phone.jpeg,/tmp/alevel-bench-10jpeg/2-small.jpg,/tmp/alevel-bench-10jpeg/3-small.jpg,/tmp/alevel-bench-10jpeg/4-small.jpg,/tmp/alevel-bench-10jpeg/5-small.jpg",
+      "filename": "prepared_batch_10_images",
+      "filenames": [
+        "06-phone.jpeg",
+        "07-phone.jpeg",
+        "08-phone.jpeg",
+        "09-phone.jpeg",
+        "1-small.jpg",
+        "10-phone.jpeg",
+        "2-small.jpg",
+        "3-small.jpg",
+        "4-small.jpg",
+        "5-small.jpg"
+      ],
+      "kind": "image_batch_prepared",
+      "batch_size": 10,
+      "size_bytes": 11398010,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 89491,
+      "prepare_elapsed_ms": 65925,
+      "analyze_elapsed_ms": 23565,
+      "first_question_ms": 22372,
+      "question_count": 4,
+      "question_error_counts": {
+        "correct": 4
+      },
+      "prepared": [
+        {
+          "filename": "06-phone.jpeg",
+          "upload_id": "6ed4ecb929d2483fb026b2da8f51c03d",
+          "question_count": 1
+        },
+        {
+          "filename": "07-phone.jpeg",
+          "upload_id": "971b189394534f2382697cf64584aa59",
+          "question_count": 1
+        },
+        {
+          "filename": "08-phone.jpeg",
+          "upload_id": "281f90c0f6a749bdbb27ccc9aadea291",
+          "question_count": 1
+        },
+        {
+          "filename": "09-phone.jpeg",
+          "upload_id": "899418be7e6f46d79fd063c140392277",
+          "question_count": 1
+        },
+        {
+          "filename": "1-small.jpg",
+          "upload_id": "95d794aab4ed47f0b113fe65aaa8386b",
+          "question_count": 1
+        },
+        {
+          "filename": "10-phone.jpeg",
+          "upload_id": "604a801872fc44c299892d87350969f7",
+          "question_count": 1
+        },
+        {
+          "filename": "2-small.jpg",
+          "upload_id": "0294bce2d86043ecb074683dbc0063d7",
+          "question_count": 2
+        },
+        {
+          "filename": "3-small.jpg",
+          "upload_id": "ff625a23adfd4a858f9e5d1d4d600c9f",
+          "question_count": 1
+        },
+        {
+          "filename": "4-small.jpg",
+          "upload_id": "fe9dc7638202452296504e11f43888d6",
+          "question_count": 2
+        },
+        {
+          "filename": "5-small.jpg",
+          "upload_id": "65802f32cb294b378fa13d6efac6218a",
+          "question_count": 1
+        }
+      ],
+      "prepare_concurrency": 4,
+      "fast_batch": true,
+      "questions": [
+        {
+          "question_number": "11b",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "Inverse Functions",
+            "Reflections",
+            "Graph Sketching"
+          ]
+        },
+        {
+          "question_number": "11a",
+          "is_correct": true,
+          "score": 5.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "11a",
+          "is_correct": true,
+          "score": 5.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "graph_transformations"
+          ]
+        },
+        {
+          "question_number": "11b",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "Inverse Functions",
+            "Reflections",
+            "Graphs"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 4,
+        "correct_count": 4,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 14.0,
+        "full_score_total": 14.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "Inverse Functions": 2,
+          "Reflections": 2,
+          "Graph Sketching": 1,
+          "graph_transformations": 1,
+          "Graphs": 1
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用大批量快评模式生成首轮结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 inverse_functions。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "inverse_functions",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260625_223321"
+    }
+  ]
+}

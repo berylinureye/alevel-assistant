@@ -6,11 +6,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import time
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 
+from api.feedback import log_ai_event
 from questionbank.database import (
     ensure_db,
     get_all_topics,
@@ -307,6 +309,8 @@ async def submit_answer(body: SubmitAnswerRequest, request: Request):
     from models.schemas import QuestionData
     from router.models import ModelRole, TaskType
 
+    started_at = time.perf_counter()
+
     # 1. 获取题目信息
     def _get_q():
         conn = ensure_db()
@@ -341,10 +345,35 @@ async def submit_answer(body: SubmitAnswerRequest, request: Request):
     try:
         result = await run_in_threadpool(do_grade, question_data, base_client, TaskType.grade)
     except Exception as exc:
+        log_ai_event(
+            "practice_answer_graded",
+            int((time.perf_counter() - started_at) * 1000),
+            {
+                "status": "error",
+                "question_id": body.question_id,
+                "error_code": "GRADING_ERROR",
+            },
+        )
         raise HTTPException(
             status_code=500,
             detail={"error_code": "GRADING_ERROR", "message": str(exc)},
         )
+
+    log_ai_event(
+        "practice_answer_graded",
+        int((time.perf_counter() - started_at) * 1000),
+        {
+            "status": "success",
+            "question_id": body.question_id,
+            "is_correct": result.is_correct,
+            "score": result.score,
+            "full_score": result.full_score,
+            "error_type": result.error_type,
+            "knowledge_tags": result.knowledge_tags,
+            "paper_num": question.paper_num,
+            "difficulty": question.difficulty,
+        },
+    )
 
     # 4. 附加题库中的标准答案
     return {

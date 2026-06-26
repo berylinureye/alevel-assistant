@@ -11,6 +11,27 @@ for (const snippet of ['下一步练习', '要不要继续练这个点', '给我
   }
 }
 
+for (const eventName of [
+  'ui_practice_recommendation_seen',
+  'ui_practice_recommendation_confirmed',
+  'ui_practice_recommendation_dismissed',
+  'ui_practice_started',
+  'ui_practice_answer_submitted',
+  'ui_practice_result_viewed',
+  'ui_practice_next_adjusted',
+]) {
+  if (!component.includes(eventName)) {
+    throw new Error(`PracticeRecommendations missing evaluation event: ${eventName}`)
+  }
+}
+
+for (const forbidden of ['student_answer', 'working_steps']) {
+  const eventPayloadPattern = new RegExp(`trackEvent\\([^)]*${forbidden}`, 's')
+  if (eventPayloadPattern.test(component)) {
+    throw new Error(`Practice evaluation event must not include raw ${forbidden}`)
+  }
+}
+
 for (const raw of ['>think<', '>act<', '>observe<', '>decide<', '>final<']) {
   if (component.toLowerCase().includes(raw)) {
     throw new Error(`Raw agent label leaked into practice UI: ${raw}`)

@@ -142,6 +142,8 @@ export interface AnalyzeRequest {
   paper_code?: string
   /** 可选：优先批改的题号，例如 3, 4(a), 7 */
   question_numbers?: string
+  /** 快速批量模式：限制长尾识别/判分等待，优先快速返回可复核结果 */
+  fast_batch?: boolean
 }
 
 export interface ExplainQuestionRequest {

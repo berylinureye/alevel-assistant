@@ -151,10 +151,15 @@ function routeText(question: QuestionResultModel): string {
 
 function statusPillClass(question: QuestionResultModel, needsTeacherReview: boolean): string {
   if (question.unanswered) return 'border-slate-200 bg-white text-slate-600'
-  if (needsTeacherReview) return 'border-amber-200 bg-white text-amber-700'
-  if (question.is_correct) return 'border-emerald-200 bg-white text-emerald-700'
-  if ((question.score ?? 0) > 0) return 'border-blue-200 bg-white text-blue-700'
-  return 'border-rose-200 bg-white text-rose-700'
+  if (needsTeacherReview) return 'border-slate-300 bg-white text-slate-800'
+  if (question.is_correct) return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  if ((question.score ?? 0) > 0) return 'border-slate-300 bg-white text-slate-800'
+  return 'border-rose-200 bg-rose-50 text-rose-700'
+}
+
+function scoreBarClass(question: QuestionResultModel, scorePct: number): string {
+  if (question.unanswered) return 'bg-slate-400'
+  return question.is_correct || scorePct >= 100 ? 'bg-emerald-500' : 'bg-rose-400'
 }
 
 export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: QuestionCardProps) {
@@ -183,16 +188,17 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
   const needsTeacherReview = question.needs_review || isPendingReview || aiConfidence < 0.65
   const isPartiallyCorrect = !question.is_correct && !question.unanswered && !needsTeacherReview && (question.score ?? 0) > 0
   const leftBorderClass = question.unanswered
-    ? 'border-l-gray-400'
+    ? 'border-l-slate-300'
     : needsTeacherReview
-      ? 'border-l-amber-400'
+      ? 'border-l-slate-500'
       : question.is_correct
-        ? 'border-l-green-500'
+        ? 'border-l-slate-950'
         : isPartiallyCorrect
-          ? 'border-l-blue-500'
-        : 'border-l-red-500'
+          ? 'border-l-slate-700'
+        : 'border-l-slate-950'
   const aiConfidenceText = confidenceLabel(aiConfidence)
   const aiConfidenceTitle = confidenceReason(question, aiConfidence)
+  const scorePct = question.full_score > 0 ? Math.round(((question.score ?? 0) / question.full_score) * 100) : 0
 
   const relevantFormulas = question.relevant_formulas ?? []
   const showErrorAnalysisSection =
@@ -201,51 +207,51 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
 
   return (
     <article
-      className={`animate-[fadeIn_0.3s_ease-out] relative overflow-visible rounded-lg border border-slate-200 bg-white shadow-sm ${leftBorderClass} border-l-4`}
+      className={`animate-[fadeIn_0.3s_ease-out] relative overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm ${leftBorderClass} border-l-4`}
     >
       <button
         type="button"
         onClick={onToggleExpand}
         aria-expanded={expanded}
-        className="flex w-full items-start justify-between gap-3 border-b border-slate-100 p-4 text-left transition hover:bg-slate-50/80"
+        className="flex w-full items-start justify-between gap-3 border-b border-slate-100 p-4 text-left transition hover:bg-slate-50/80 sm:p-5"
       >
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <h3 className="text-lg font-semibold text-slate-950">{question.question_number}</h3>
-          {question.unanswered ? (
-            <span className="rounded-md bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
-              未作答
+        <div className="grid min-w-0 flex-1 gap-4 sm:grid-cols-[minmax(0,1fr)_128px]">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-xl font-semibold tracking-tight text-slate-950">{question.question_number}</h3>
+              <span className={`rounded-md border px-2.5 py-0.5 text-xs font-semibold ${statusPillClass(question, needsTeacherReview)}`}>
+                {statusText(question, needsTeacherReview)}
+              </span>
+              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                {routeText(question)}
+              </span>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-700 [overflow-wrap:anywhere]">
+              {diagnosisText(question, needsTeacherReview)}
+            </p>
+            {question.short_feedback ? (
+              <p className="mt-1 truncate text-sm text-slate-500">
+                {question.short_feedback}
+              </p>
+            ) : null}
+            <span
+              className={`mt-2 inline-flex text-xs ${confidenceTextClass(aiConfidence)}`}
+              title={aiConfidenceTitle}
+            >
+              AI 置信度：{aiConfidenceText}
             </span>
-          ) : needsTeacherReview ? (
-            <span className="rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-              建议老师复核
-            </span>
-          ) : question.is_correct ? (
-            <span className="rounded-md bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
-              正确
-            </span>
-          ) : isPartiallyCorrect ? (
-            <span className="rounded-md bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
-              部分正确
-            </span>
-          ) : (
-            <span className="rounded-md bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
-              错误
-            </span>
-          )}
-          <span className="text-sm text-slate-600">
-            {question.score} / {question.full_score}
-          </span>
-          <span
-            className={`text-xs ${confidenceTextClass(aiConfidence)}`}
-            title={aiConfidenceTitle}
-          >
-            AI 置信度：{aiConfidenceText}
-          </span>
-          {question.short_feedback ? (
-            <span className="basis-full truncate text-sm text-slate-600">
-              {question.short_feedback}
-            </span>
-          ) : null}
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-right">
+            <p className="text-xs text-slate-500">得分</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-950">
+              {question.score}
+              <span className="text-sm font-medium text-slate-500"> / {question.full_score}</span>
+            </p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+              <div className={`h-full rounded-full ${scoreBarClass(question, scorePct)}`} style={{ width: `${Math.min(100, Math.max(0, scorePct))}%` }} />
+            </div>
+          </div>
         </div>
         <span
           className={`mt-1 shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
@@ -260,11 +266,11 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
           {imageUrl ? (
             <ImagePreview imageUrl={imageUrl} questionNumber={question.question_number} />
           ) : null}
-          <div className="border-b border-slate-100 p-4">
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">题目</h4>
+          <div className="border-b border-slate-100 p-4 sm:p-5">
+            <h4 className="mb-3 text-xs font-semibold text-slate-500">题目</h4>
             {question.parent_stem ? (
-              <div className="mb-3 rounded-md border border-blue-100 bg-blue-50/60 px-3 py-2">
-                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+              <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="mb-1 text-[11px] font-semibold text-slate-500">
                   主题干
                 </div>
                 <p
@@ -274,9 +280,9 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
               </div>
             ) : null}
             {question.question_text ? (
-              <div className={question.parent_stem ? 'rounded-md bg-slate-50 px-3 py-2' : ''}>
+              <div className={question.parent_stem ? 'rounded-lg bg-slate-50 px-3 py-2' : ''}>
                 {question.parent_stem ? (
-                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="mb-1 text-[11px] font-semibold text-slate-500">
                     本小题（{question.question_number}）
                   </div>
                 ) : null}
@@ -296,15 +302,15 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
             }
           />
 
-          <div className="border-b border-slate-100 p-4">
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="border-b border-slate-100 p-4 sm:p-5">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                    学习诊断
+                  <p className="text-xs font-semibold text-slate-500">
+                    错题订正
                   </p>
                   <p className="mt-1 text-sm font-medium text-slate-950">
-                    这题先看判断，再看下一步怎么补
+                    先看扣分点，再决定追问或重做
                   </p>
                 </div>
                 <span className={`rounded-md border px-2.5 py-0.5 text-xs font-semibold ${statusPillClass(question, needsTeacherReview)}`}>
@@ -339,12 +345,12 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 px-4 py-3">
+              <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3">
                 <p className="text-sm leading-6 text-slate-700 [overflow-wrap:anywhere]">
                   {diagnosisText(question, needsTeacherReview)}
                 </p>
               {question.mark_scheme_context_error ? (
-                <p className="mt-2 rounded-md border border-amber-200 bg-white/70 px-3 py-2 text-xs leading-5 text-amber-800">
+                <p className="mt-2 rounded-md border border-slate-200 bg-white/70 px-3 py-2 text-xs leading-5 text-slate-700">
                   评分规则上下文不足：{question.mark_scheme_context_error}
                 </p>
               ) : null}
@@ -353,13 +359,13 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
 
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
               <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">学生作答</h4>
+                <h4 className="mb-2 text-xs font-semibold text-slate-500">学生作答</h4>
                 {question.unanswered ? (
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                     此题学生未作答。
                   </div>
                 ) : (
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
                     <div
                       className="whitespace-pre-wrap text-sm text-slate-900 overflow-x-auto [overflow-wrap:anywhere] [&_.katex]:text-inherit"
                       dangerouslySetInnerHTML={{ __html: renderMath(question.student_answer) }}
@@ -369,10 +375,10 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
               </div>
               {question.correct_answer != null && question.correct_answer !== '' ? (
                 <div>
-                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">参考答案</h4>
-                  <div className="rounded-md border border-blue-100 bg-blue-50/70 px-3 py-2.5">
+                  <h4 className="mb-2 text-xs font-semibold text-slate-500">参考答案</h4>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
                     <div
-                      className="whitespace-pre-wrap text-sm font-medium text-blue-950 overflow-x-auto [overflow-wrap:anywhere] [&_.katex]:text-inherit"
+                      className="whitespace-pre-wrap text-sm font-medium text-slate-950 overflow-x-auto [overflow-wrap:anywhere] [&_.katex]:text-inherit"
                       dangerouslySetInnerHTML={{ __html: renderMath(question.correct_answer) }}
                     />
                   </div>
@@ -381,18 +387,18 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
             </div>
 
             {question.detail_deductions && question.detail_deductions.length > 0 ? (
-              <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
-                <p className="mb-1.5 text-xs font-medium text-amber-700">细节失分</p>
+              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <p className="mb-1.5 text-xs font-medium text-slate-600">细节失分</p>
                 <div className="flex flex-wrap gap-1.5">
                   {question.detail_deductions.map((d, i) => (
                     <span
                       key={i}
-                      className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-300"
+                      className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-slate-900 ring-1 ring-slate-200"
                       title={d.detail}
                     >
                       <span>{d.tag}</span>
                       {d.lost_points > 0 ? (
-                        <span className="text-[10px] text-amber-700">−{d.lost_points}分</span>
+                        <span className="text-[10px] text-slate-600">−{d.lost_points}分</span>
                       ) : null}
                     </span>
                   ))}
@@ -400,7 +406,7 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
                 {question.detail_deductions.map((d, i) => (
                   <p
                     key={`detail-${i}`}
-                    className="mt-1.5 whitespace-pre-wrap text-xs text-amber-900/90 [overflow-wrap:anywhere] [&_.katex]:text-inherit"
+                    className="mt-1.5 whitespace-pre-wrap text-xs text-slate-700 [overflow-wrap:anywhere] [&_.katex]:text-inherit"
                     dangerouslySetInnerHTML={{ __html: renderMath(d.detail) }}
                   />
                 ))}
@@ -431,7 +437,7 @@ export function QuestionCard({ question, expanded, onToggleExpand, imageUrl }: Q
                     {relevantFormulas.map((f, i) => (
                       <div
                         key={i}
-                        className="max-w-full rounded-lg border border-blue-100 bg-blue-50/80 px-3 py-2 text-sm text-blue-950 overflow-x-auto [overflow-wrap:anywhere] [&_.katex]:text-inherit [&_.katex-display]:my-1 [&_.katex-display]:overflow-x-auto"
+                        className="max-w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-950 overflow-x-auto [overflow-wrap:anywhere] [&_.katex]:text-inherit [&_.katex-display]:my-1 [&_.katex-display]:overflow-x-auto"
                         dangerouslySetInnerHTML={{ __html: renderMath(f) }}
                       />
                     ))}

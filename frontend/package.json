@@ -12,6 +12,7 @@
     "test:practice-context": "node scripts/test-practice-context.mjs",
     "test:practice-orchestrator": "node scripts/replay-practice-orchestrator.mjs",
     "test:question-card": "node scripts/replay-question-card.mjs",
+    "test:fast-upload-flow": "node scripts/test-fast-upload-flow.mjs",
     "test:visual": "node ../scripts/visual_acceptance.mjs"
   },
   "dependencies": {
