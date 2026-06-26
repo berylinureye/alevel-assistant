@@ -24,7 +24,7 @@ _log = logging.getLogger("api.routes")
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 from utils.image_utils import _register_optional_image_openers, load_image
 
@@ -158,6 +158,7 @@ def _make_preview_data_url(image_data: bytes, max_edge: int = 1800) -> str | Non
     """Return a browser-renderable JPEG data URL for formats like HEIC."""
     try:
         img = Image.open(io.BytesIO(image_data))
+        img = ImageOps.exif_transpose(img)
         img.load()
         img.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
         if img.mode in {"RGBA", "LA"} or (img.mode == "P" and "transparency" in img.info):

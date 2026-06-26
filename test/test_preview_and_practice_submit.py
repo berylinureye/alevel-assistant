@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import io
 from types import SimpleNamespace
 
 from PIL import Image
@@ -20,6 +22,23 @@ def test_make_preview_data_url_returns_browser_renderable_jpeg(tmp_path):
 
     assert data_url is not None
     assert data_url.startswith("data:image/jpeg;base64,")
+
+
+def test_make_preview_data_url_applies_exif_orientation(tmp_path):
+    from api.routes import _make_preview_data_url
+
+    image_path = tmp_path / "iphone-page.jpg"
+    img = Image.new("RGB", (120, 80), "white")
+    exif = Image.Exif()
+    exif[274] = 6
+    img.save(image_path, format="JPEG", exif=exif)
+
+    data_url = _make_preview_data_url(image_path.read_bytes())
+
+    assert data_url is not None
+    encoded = data_url.removeprefix("data:image/jpeg;base64,")
+    preview = Image.open(io.BytesIO(base64.b64decode(encoded)))
+    assert preview.size == (80, 120)
 
 
 def test_submit_answer_uses_fast_local_marking_without_llm(monkeypatch, tmp_path):
