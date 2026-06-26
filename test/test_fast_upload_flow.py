@@ -12,7 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from api.routes import FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS, router
+from api.routes import (
+    FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS,
+    PREPARE_UPLOAD_TIMEOUT_SECONDS,
+    router,
+)
 from api import upload_cache
 from api.routes import _resolve_prepared
 
@@ -54,8 +58,9 @@ def test_fast_batch_stream_uses_recognition_timeout(monkeypatch) -> None:
     assert captured["recognition_timeout_seconds"] == FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS
 
 
-def test_fast_batch_recognition_timeout_default_is_quality_first() -> None:
-    assert FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS == 120
+def test_fast_batch_recognition_timeout_default_matches_interactive_sla() -> None:
+    assert PREPARE_UPLOAD_TIMEOUT_SECONDS == 15
+    assert FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS == 15
 
 
 def test_resolve_prepared_falls_back_when_prepare_timed_out() -> None:

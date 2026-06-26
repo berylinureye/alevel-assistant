@@ -133,7 +133,7 @@ function renderSegmentAuto(segment: string): string {
 
 /** 与常见数学片段匹配的 token（较长模式在前） */
 const MATH_TOKEN_RE =
-  /(\\(?:sin|cos|tan|log|ln)\^\{[^}]+\}\\left[(\[{][^)\]}\n]*\\right[)\]}]|\\(?:sin|cos|tan|log|ln)\\left[(\[{][^)\]}\n]*\\right[)\]}]|\\frac\{[^}]+\}\{[^}]+\}|\\sqrt\{[^}]+\}|\\left[(\[{][^)\]}\n]*\\right[)\]}]|\\[a-zA-Z]+\^\{[^}]+\}|\\int|\\sum|\\prod|\\lim|\\sin|\\cos|\\tan|\\log|\\ln|\\exp|\\pi|\\infty|\\partial|(?:sin|cos|tan)\s*\^\s*-?1\s*\([^)\n]+\)|(?:sin|cos|tan|log|ln)\s*\([^)\n]+\)|sqrt\([^)\n]+\)|[a-zA-Z]+\^(?:-?\d+|\{[^}]+\})|(?:-?(?:pi|sqrt\([^)\n]+\)|[a-zA-Z0-9]+)\s*\/\s*(?:pi|sqrt\([^)\n]+\)|[a-zA-Z0-9]+))|(?:[a-zA-Z0-9(){}\\^]+(?:\s*[=+\-*/]\s*[a-zA-Z0-9(){}\\^]+)+)|dy\s*\/\s*dx|d\s*\/\s*dx)/gi
+  /(\\(?:sin|cos|tan|log|ln)\^\{[^}]+\}\\left[([{][^)\]}\n]*\\right[)\]}]|\\(?:sin|cos|tan|log|ln)\\left[([{][^)\]}\n]*\\right[)\]}]|\\frac\{[^}]+\}\{[^}]+\}|\\sqrt\{[^}]+\}|\\left[([{][^)\]}\n]*\\right[)\]}]|\\[a-zA-Z]+\^\{[^}]+\}|\\int|\\sum|\\prod|\\lim|\\sin|\\cos|\\tan|\\log|\\ln|\\exp|\\pi|\\infty|\\partial|(?:sin|cos|tan)\s*\^\s*-?1\s*\([^)\n]+\)|(?:sin|cos|tan|log|ln)\s*\([^)\n]+\)|sqrt\([^)\n]+\)|[a-zA-Z]+\^(?:-?\d+|\{[^}]+\})|(?:-?(?:pi|sqrt\([^)\n]+\)|[a-zA-Z0-9]+)\s*\/\s*(?:pi|sqrt\([^)\n]+\)|[a-zA-Z0-9]+))|(?:[a-zA-Z0-9(){}\\^]+(?:\s*[=+\-*/]\s*[a-zA-Z0-9(){}\\^]+)+)|dy\s*\/\s*dx|d\s*\/\s*dx)/gi
 
 function hasAutoMathHint(text: string): boolean {
   return (

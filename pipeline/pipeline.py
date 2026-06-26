@@ -40,11 +40,13 @@ STREAM_PARENT_STEM_CHARS = 900
 STREAM_STUDENT_ANSWER_CHARS = 600
 STREAM_WORKING_STEP_CHARS = 280
 STREAM_MAX_WORKING_STEPS = 8
-FAST_BATCH_QUESTION_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_QUESTION_TIMEOUT_SECONDS", "120"))
-FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS", "25"))
+FAST_BATCH_QUESTION_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_QUESTION_TIMEOUT_SECONDS", "15"))
+FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS", "8"))
+FAST_BATCH_TIMEOUT_GRACE_SECONDS = float(os.environ.get("FAST_BATCH_TIMEOUT_GRACE_SECONDS", "2"))
 FAST_BATCH_MAX_WORKERS = int(os.environ.get("FAST_BATCH_MAX_WORKERS", "16"))
-FAST_BATCH_PREPARE_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_PREPARE_TIMEOUT_SECONDS", "120"))
+FAST_BATCH_PREPARE_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_PREPARE_TIMEOUT_SECONDS", "15"))
 FAST_BATCH_PREPARE_MAX_WORKERS = int(os.environ.get("FAST_BATCH_PREPARE_MAX_WORKERS", "10"))
+FAST_BATCH_IMAGE_MAX_DIMENSION = int(os.environ.get("FAST_BATCH_IMAGE_MAX_DIMENSION", "1600"))
 FAST_BATCH_PARSE_ATTEMPTS = int(os.environ.get("FAST_BATCH_PARSE_ATTEMPTS", "1"))
 FAST_BATCH_REQUEST_RETRIES = int(os.environ.get("FAST_BATCH_REQUEST_RETRIES", "0"))
 DEFAULT_RECOGNITION_TIMEOUT_SECONDS = float(os.environ.get("RECOGNITION_TIMEOUT_SECONDS", "90"))
@@ -263,15 +265,36 @@ def _segment_fast_batch_individual(
     if not images:
         return []
 
-    def _run_with_timeout(img: Any) -> tuple[list[dict], bool | None]:
+    def _fast_image(img: Any) -> Any:
+        if FAST_BATCH_IMAGE_MAX_DIMENSION <= 0:
+            return img
+        try:
+            width, height = img.size
+        except Exception:
+            return img
+        if max(width, height) <= FAST_BATCH_IMAGE_MAX_DIMENSION:
+            return img
+        scale = FAST_BATCH_IMAGE_MAX_DIMENSION / max(width, height)
+        from PIL import Image as PILImage
+        resample = getattr(getattr(PILImage, "Resampling", PILImage), "LANCZOS")
+        return img.resize(
+            (max(1, int(width * scale)), max(1, int(height * scale))),
+            resample=resample,
+        )
+
+    def _run_with_timeout(img: Any, *, probe_header: bool) -> tuple[list[dict], bool | None]:
         result: dict[str, Any] = {}
 
         def _target() -> None:
             items = segment_and_extract(
-                [img], vision_client, user_hint=user_hint, ocr_client=ocr_client
+                [_fast_image(img)],
+                vision_client,
+                user_hint=user_hint,
+                ocr_client=ocr_client,
+                fast_mode=True,
             )
             starts_with_qnum: bool | None = None
-            if ocr_client is not None:
+            if probe_header:
                 try:
                     from pipeline.segmenter import (
                         _page_header_text,
@@ -294,7 +317,11 @@ def _segment_fast_batch_individual(
 
     def _run_one(index_and_image: tuple[int, Any]) -> tuple[int, list[dict], bool | None]:
         idx, img = index_and_image
-        items, starts_with_qnum = _run_with_timeout(img)
+        probe_header = (
+            len(images) > 1
+            and str(getattr(ocr_client, "provider", "") or "").strip().lower() == "local_tesseract"
+        )
+        items, starts_with_qnum = _run_with_timeout(img, probe_header=probe_header)
         global_page = idx + 1
         is_continuation = (idx > 0) and (starts_with_qnum is False)
         for item in items:
@@ -409,6 +436,13 @@ def _build_fast_page_summary(grades: list[GradeResult]) -> dict[str, Any]:
         for topic, count in sorted(wrong_tag_counts.items(), key=lambda item: -item[1])[:3]
     ]
 
+    if review_count > 0:
+        teacher_comment = "已使用快速首轮批改生成结果；优先复查低置信题目。"
+    elif incorrect_count > 0 or unanswered_count > 0:
+        teacher_comment = "已使用快速首轮批改生成结果；优先讲评错题和未作答题。"
+    else:
+        teacher_comment = "本页题目均已判对，无需复核。"
+
     return {
         "total_questions": len(grades),
         "correct_count": correct_count,
@@ -423,7 +457,7 @@ def _build_fast_page_summary(grades: list[GradeResult]) -> dict[str, Any]:
         "knowledge_tags_summary": tag_counts,
         "estimated_review_minutes": max(0, incorrect_count * 6 + review_count * 4),
         "priority_topics": priority_topics,
-        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。",
+        "overall_teacher_comment": teacher_comment,
     }
 
 
@@ -768,6 +802,49 @@ def _process_one_question(
         if not do_grade:
             return {"record": record, "grade": None}
 
+        if fast_batch_mode:
+            try:
+                from verifier.statistics_verifier import verify_statistics
+
+                stat_vr = verify_statistics(
+                    question_text=question.question_text,
+                    parent_stem=question.parent_stem,
+                    student_answer=question.student_answer,
+                    working_steps=question.working_steps or [],
+                    client=base_client,
+                    allow_llm=False,
+                )
+            except Exception:
+                stat_vr = None
+            if stat_vr is not None and stat_vr.verified and stat_vr.student_matches is True:
+                full_score = float(question.marks) if question.marks > 0 else 1.0
+                final_grade = GradeResult(
+                    question_number=qnum,
+                    question_type=QuestionType.statistics,
+                    is_correct=True,
+                    score=full_score,
+                    full_score=full_score,
+                    error_type="correct",
+                    knowledge_tags=["statistics"],
+                    needs_review=False,
+                    short_feedback="答案正确，数值通过统计公式校验。",
+                    grading_confidence=0.95,
+                    correct_answer=f"${stat_vr.primary_answer}$" if stat_vr.primary_answer else None,
+                    student_feedback="答案正确，关键数值已通过统计公式校验。",
+                    teacher_feedback=f"Fast statistics verifier confirmed the answer. {stat_vr.detail}",
+                    syllabus_topics=[],
+                    relevant_formulas=[],
+                )
+                record["grading"] = final_grade.model_dump()
+                record["grading"]["used_model"] = "statistics_verifier"
+                record["feedback"] = {
+                    "question_number": qnum,
+                    "student_feedback": final_grade.student_feedback or "",
+                    "teacher_feedback": final_grade.teacher_feedback or "",
+                }
+                record["solution_text"] = None
+                return {"record": record, "grade": final_grade}
+
         # --- 安全网 A：图表题短路 ---
         # 学生以作图作答时 extractor 无法转录，grader 会判错。这里直接跳过判分、
         # 生成作图参考步骤填入 correct_answer，标 needs_review 让教师复核。
@@ -904,11 +981,23 @@ def _process_one_question(
             final_grade = base_grade
 
         if extracted.get("needs_review"):
-            final_grade.needs_review = True
-            reason = str(extracted.get("review_reason", "") or "segmenter_inconsistency")
-            final_grade.escalation_reasons = list(final_grade.escalation_reasons or []) + [
-                f"segmenter:{reason}"
-            ]
+            segmenter_reason = str(extracted.get("review_reason", "") or "segmenter_inconsistency")
+            high_confidence_correct = (
+                final_grade.is_correct
+                and final_grade.error_type == "correct"
+                and float(final_grade.grading_confidence or 0.0) >= 0.95
+            )
+            if high_confidence_correct:
+                _log.info(
+                    "第 %s 题已高置信判对，忽略 segmenter 复核标记: %s",
+                    qnum,
+                    segmenter_reason,
+                )
+            else:
+                final_grade.needs_review = True
+                final_grade.escalation_reasons = list(final_grade.escalation_reasons or []) + [
+                    f"segmenter:{segmenter_reason}"
+                ]
 
         if extracted.get("mark_scheme_context_error"):
             reason = str(extracted.get("mark_scheme_context_error"))
@@ -1407,6 +1496,21 @@ def run_pipeline_streaming(
             deadline=deadline,
             after_first_result_seconds=FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS,
         )
+        if pending_idxs and FAST_BATCH_TIMEOUT_GRACE_SECONDS > 0:
+            before_grace = len(pending_idxs)
+            grace_deadline = time.monotonic() + FAST_BATCH_TIMEOUT_GRACE_SECONDS
+            _log.info(
+                "fast_batch waiting %.1fs grace for %d near-timeout question(s)",
+                FAST_BATCH_TIMEOUT_GRACE_SECONDS,
+                before_grace,
+            )
+            yield from _consume_question_results(
+                pending_idxs,
+                deadline=grace_deadline,
+            )
+            recovered = before_grace - len(pending_idxs)
+            if recovered:
+                _log.info("fast_batch grace recovered %d question result(s)", recovered)
         if pending_idxs:
             emitted_count = len(extracted_list) - len(pending_idxs)
             timeout_seconds = (

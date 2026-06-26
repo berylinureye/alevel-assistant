@@ -12,9 +12,25 @@ services:
       - key: ANTHROPIC_BASE_URL
         value: https://api.viviai.cc
       - key: BASE_MODEL
-        value: gemini-3-flash-preview
+        value: gemini-2.5-flash
+      - key: VISION_MODEL
+        value: gemini-2.5-flash
       - key: REVIEW_MODEL
         value: gemini-3-pro-preview
+      - key: PREPARE_UPLOAD_TIMEOUT_SECONDS
+        value: "15"
+      - key: FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS
+        value: "15"
+      - key: FAST_BATCH_PREPARE_TIMEOUT_SECONDS
+        value: "15"
+      - key: FAST_BATCH_IMAGE_MAX_DIMENSION
+        value: "1600"
+      - key: FAST_BATCH_QUESTION_TIMEOUT_SECONDS
+        value: "15"
+      - key: FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS
+        value: "8"
+      - key: FAST_BATCH_TIMEOUT_GRACE_SECONDS
+        value: "2"
       - key: ALLOWED_ORIGINS
         value: https://alevel-app.onrender.com
       - key: PYTHON_VERSION

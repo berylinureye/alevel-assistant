@@ -193,9 +193,13 @@ Key knobs:
 
 | Setting | Default | Purpose |
 |---|---:|---|
-| `FAST_BATCH_PREPARE_TIMEOUT_SECONDS` | `120` | Page recognition budget |
-| `FAST_BATCH_QUESTION_TIMEOUT_SECONDS` | `120` | Hard total grading budget before any result |
-| `FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS` | `25` | Extra wait after first usable question |
+| `PREPARE_UPLOAD_TIMEOUT_SECONDS` | `15` | Upload-time pre-recognition cap per image, far below the old 120s tail |
+| `FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS` | `15` | Click-to-grade recognition cap |
+| `FAST_BATCH_PREPARE_TIMEOUT_SECONDS` | `15` | Fast batch page recognition cap |
+| `FAST_BATCH_IMAGE_MAX_DIMENSION` | `1600` | Long-edge resize for interactive recognition |
+| `FAST_BATCH_QUESTION_TIMEOUT_SECONDS` | `15` | Interactive grading cap per question, far below the old 120s tail |
+| `FAST_BATCH_AFTER_FIRST_QUESTION_TIMEOUT_SECONDS` | `8` | Extra wait after first usable question before pending items are considered timed out |
+| `FAST_BATCH_TIMEOUT_GRACE_SECONDS` | `2` | Short drain window for near-complete fast-batch grading results |
 | `FAST_BATCH_PREPARE_MAX_WORKERS` | `10` | Prepare/upload recognition concurrency |
 | `FAST_BATCH_MAX_WORKERS` | `16` | Fast-first question grading concurrency |
 

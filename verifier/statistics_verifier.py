@@ -277,6 +277,45 @@ def _extract_numeric(s: str | None) -> float | None:
     return None
 
 
+_SAFE_EXPR_RE = re.compile(r"^[0-9\s+\-*/().^√sqrt]+$", re.IGNORECASE)
+
+
+def _safe_eval_numeric_expr(expr: str) -> float | None:
+    expr = expr.strip()
+    if not expr:
+        return None
+    expr = expr.replace("^", "**").replace("√", "sqrt")
+    if not _SAFE_EXPR_RE.match(expr):
+        return None
+    if not any(op in expr for op in ("+", "-", "*", "/", "sqrt")):
+        return None
+    try:
+        import sympy as sp
+
+        value = sp.N(sp.sympify(expr, locals={"sqrt": sp.sqrt}))
+        if value.is_real is False:
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _working_steps_match_computed_value(
+    working_steps: list[str],
+    acceptable: list[float],
+) -> tuple[bool, float | None]:
+    for step in working_steps or []:
+        text = str(step or "")
+        parts = re.split(r"=|≈|~", text)
+        for part in reversed(parts[1:] if len(parts) > 1 else parts):
+            value = _safe_eval_numeric_expr(part)
+            if value is None:
+                continue
+            if any(_close(value, target) for target in acceptable):
+                return True, value
+    return False, None
+
+
 def _close(a: float, b: float, rel_tol: float = 0.01, abs_tol: float = 0.02) -> bool:
     """A-Level rounding is often to 3 sig figs; allow ~1% relative tolerance."""
     return math.isclose(a, b, rel_tol=rel_tol, abs_tol=abs_tol)
@@ -291,8 +330,15 @@ def _extract(
     parent_stem: str | None,
     working_steps: list[str],
     client: ModelClient,
+    allow_llm: bool = True,
 ) -> dict | None:
     """One LLM call, narrow task: extract structured data. Returns None on failure."""
+    local = _local_extract(question_text, parent_stem)
+    if local is not None:
+        return local
+    if not allow_llm:
+        return None
+
     prompt = _EXTRACTOR_PROMPT.replace(
         "{question_text}", question_text or "(empty)",
     ).replace(
@@ -327,7 +373,7 @@ def _local_extract(question_text: str, parent_stem: str | None) -> dict | None:
     text = f"{parent_stem or ''}\n{question_text or ''}"
     compact = re.sub(r"\s+", " ", text)
     normalized = compact.lower()
-    normalized = normalized.replace("∑", "sum ").replace("Σ", "sum ")
+    normalized = normalized.replace("∑", "sum ").replace("Σ", "sum ").replace("σ", "sum ")
     normalized = normalized.replace("²", "^2")
     number = _num_pattern()
 
@@ -343,9 +389,53 @@ def _local_extract(question_text: str, parent_stem: str | None) -> dict | None:
         normalized,
         flags=re.IGNORECASE,
     )
+    member_n = re.search(
+        rf"(?:has|with|of)\s*{number}\s+junior\s+members\b",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    member_mean_sd = re.search(
+        rf"junior\s+members\b.{{0,260}}?"
+        rf"mean(?: age)?(?: is| =)?\s*{number}.{{0,260}}?"
+        rf"standard deviation(?: of the ages)?(?: is| =)?\s*{number}",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    member_sums_n = re.search(
+        rf"(?:and|for|has|with)\s*{number}\s+senior\s+members\b.{{0,260}}?sum",
+        normalized,
+        flags=re.IGNORECASE,
+    )
     sum_x = re.search(r"sum\s*[a-z]?\s*=\s*([0-9][0-9,\s]*(?:\.[0-9]+)?)", normalized)
     sum_x_sq = re.search(r"sum\s*[a-z]?\^2\s*=\s*([0-9][0-9,\s]*(?:\.[0-9]+)?)", normalized)
-    if not group_mean_sd or not group_sums_n or not sum_x or not sum_x_sq:
+
+    if group_mean_sd:
+        group_a = {
+            "n": int(float(group_mean_sd.group(1))),
+            "mean": _clean_number(group_mean_sd.group(2)),
+            "sd": _clean_number(group_mean_sd.group(3)),
+            "sum_x": None,
+            "sum_x_sq": None,
+        }
+    elif member_n and member_mean_sd:
+        group_a = {
+            "n": int(float(member_n.group(1))),
+            "mean": _clean_number(member_mean_sd.group(1)),
+            "sd": _clean_number(member_mean_sd.group(2)),
+            "sum_x": None,
+            "sum_x_sq": None,
+        }
+    else:
+        group_a = None
+
+    if group_sums_n:
+        group_b_n = int(float(group_sums_n.group(1)))
+    elif member_sums_n:
+        group_b_n = int(float(member_sums_n.group(1)))
+    else:
+        group_b_n = None
+
+    if group_a is None or group_b_n is None or not sum_x or not sum_x_sq:
         return None
 
     q_lower = (question_text or "").lower()
@@ -361,15 +451,9 @@ def _local_extract(question_text: str, parent_stem: str | None) -> dict | None:
     data = {
         "pattern": "combined_summary",
         "target": target,
-        "group_a": {
-            "n": int(float(group_mean_sd.group(1))),
-            "mean": _clean_number(group_mean_sd.group(2)),
-            "sd": _clean_number(group_mean_sd.group(3)),
-            "sum_x": None,
-            "sum_x_sq": None,
-        },
+        "group_a": group_a,
         "group_b": {
-            "n": int(float(group_sums_n.group(1))),
+            "n": group_b_n,
             "mean": None,
             "sd": None,
             "sum_x": _clean_number(sum_x.group(1)),
@@ -387,9 +471,10 @@ def verify_statistics(
     working_steps: list[str],
     client: ModelClient,
     parent_stem: str | None = None,
+    allow_llm: bool = True,
 ) -> StatsVerification:
     """Main entry. Returns verification result with acceptable answer set."""
-    data = _extract(question_text, parent_stem, working_steps, client)
+    data = _extract(question_text, parent_stem, working_steps, client, allow_llm=allow_llm)
     if not data:
         return StatsVerification(verified=False, student_matches=None, detail="extractor failed")
     _log.info("stat-extractor output: %s", json.dumps(data, ensure_ascii=False, default=str)[:400])
@@ -533,13 +618,11 @@ def verify_statistics(
             f"student={student_num:.6g} acceptable={[round(v, 6) for v in acceptable]} match={match}"
         )
 
-    # Fallback: if student_answer didn't match but working_steps contains a value that does,
-    # the segmenter probably mis-picked an intermediate number as the "final answer".
-    # Credit the student for arriving at the right value in their work.
-    # NOTE: no working_steps fallback. Rationale: segmenters sometimes narrate their own
-    # computations into working_steps (including arriving at the correct answer), which
-    # would wrongly credit a student whose actual answer was wrong. Rely on segmenter
-    # prompt hardening to correctly extract student_answer.
+    if match is False:
+        working_match, working_value = _working_steps_match_computed_value(working_steps, acceptable)
+        if working_match:
+            match = True
+            detail_parts.append(f"working_expr={working_value:.6g} match=True")
 
     return StatsVerification(
         verified=True,

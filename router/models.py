@@ -518,6 +518,12 @@ def build_registry() -> dict[ModelRole, ModelClient]:
             vision_model,
             api_key=dashscope_key, base_url=dashscope_url, provider="dashscope",
         )
+    elif default_key and vision_model:
+        registry[ModelRole.vision] = _build_client(
+            ModelRole.vision,
+            vision_model,
+            api_key=default_key, base_url=default_url, provider=default_provider,
+        )
 
     # --- BASE: 优先 DashScope（快速纯文本），否则用默认 ---
     if dashscope_key:
@@ -529,7 +535,7 @@ def build_registry() -> dict[ModelRole, ModelClient]:
     else:
         registry[ModelRole.base] = _build_client(
             ModelRole.base,
-            os.environ.get("BASE_MODEL", "gemini-3-flash-preview"),
+            os.environ.get("BASE_MODEL", "gemini-2.5-flash"),
             api_key=default_key, base_url=default_url, provider=default_provider,
         )
 

@@ -1,11 +1,6 @@
 import { useState } from 'react'
 
-const STORAGE_KEY = 'alevel-ta-invite-verified'
 const VALID_CODES = ['ALEVEL2026', 'BETA2026']
-
-export function isInviteVerified(): boolean {
-  return localStorage.getItem(STORAGE_KEY) === 'true'
-}
 
 export function InviteGate({ onVerified }: { onVerified: () => void }) {
   const [code, setCode] = useState('')
@@ -15,7 +10,7 @@ export function InviteGate({ onVerified }: { onVerified: () => void }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (VALID_CODES.includes(code.trim().toUpperCase())) {
-      localStorage.setItem(STORAGE_KEY, 'true')
+      localStorage.setItem('alevel-ta-invite-verified', 'true')
       onVerified()
     } else {
       setError(true)

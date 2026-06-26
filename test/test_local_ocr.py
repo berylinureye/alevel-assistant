@@ -218,6 +218,19 @@ def test_build_registry_uses_default_viviai_ocr_model_when_set(monkeypatch) -> N
     assert registry[ModelRole.ocr].model_id == "gemini-3-flash-preview"
 
 
+def test_build_registry_uses_default_viviai_vision_model_when_set(monkeypatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.viviai.cc")
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    monkeypatch.setenv("VISION_MODEL", "gemini-2.5-flash-lite")
+
+    registry = build_registry()
+
+    assert registry[ModelRole.vision].provider == "viviai"
+    assert registry[ModelRole.vision].model_id == "gemini-2.5-flash-lite"
+    assert registry[ModelRole.base].model_id != registry[ModelRole.vision].model_id
+
+
 def test_build_registry_skips_unavailable_local_ocr(monkeypatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.viviai.cc")

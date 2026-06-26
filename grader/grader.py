@@ -170,9 +170,19 @@ def _apply_statistics_verifier(
         grade.is_correct = True
         grade.score = grade.full_score
         grade.error_type = "correct"
-        grade.short_feedback = (
-            (grade.short_feedback or "") + " [已通过数值验证修正：学生答案与独立计算一致]"
-        ).strip()
+        grade.needs_review = False
+        grade.grading_confidence = max(float(grade.grading_confidence or 0.0), 0.95)
+        answer_note = f"独立计算结果为 {vr.primary_answer}。" if vr.primary_answer else ""
+        grade.short_feedback = "答案正确，已通过独立统计公式校验。"
+        grade.student_feedback = (
+            "答案正确。你的最终答案或关键演算与独立统计公式计算一致，"
+            "本题应给满分。"
+        )
+        grade.teacher_feedback = (
+            "统计数值校验确认学生作答正确。"
+            f"{answer_note}"
+            " 已覆盖原模型的错误判定。"
+        )
         if vr.primary_answer:
             grade.correct_answer = f"${vr.primary_answer}$"
         return True
@@ -511,7 +521,11 @@ def grade_question(
             )
             grade.is_correct = True
             grade.error_type = "correct"
+            grade.needs_review = False
+            grade.grading_confidence = max(float(grade.grading_confidence or 0.0), 0.9)
             grade.short_feedback = "答案正确。"
+            grade.student_feedback = "答案正确。你的答案与系统识别出的标准答案一致。"
+            grade.teacher_feedback = "学生答案与标准答案文本一致，已覆盖原模型的错误判定。"
         elif _sa and _ca and _sa == _ca:
             # 文本撞上但答案太通用（如 "y = x"），很可能是 VL + grader 双重幻觉。
             # 不翻转，但降分并标 needs_review 让老师复核。
@@ -549,7 +563,7 @@ def grade_question(
         return grade
 
     # --- SymPy 验证 + Confidence 校准 ---
-    grade = verify_and_calibrate(grade, question, q_type)
+    grade = verify_and_calibrate(grade, question, q_type, stat_client=client)
 
     _log.info("Q%s total grade_question: %.1fs", question.question_number, _time.monotonic() - _t_start)
     return grade

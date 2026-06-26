@@ -8,8 +8,8 @@ The current local `.env` resolves to this registry:
 
 | Role | Provider | Model / Engine | Purpose |
 | --- | --- | --- | --- |
-| `base` | VIVIAI | `gemini-3-flash-preview` | Fast default model for normal grading and text tasks. |
-| `vision` | VIVIAI | `gemini-3-flash-preview` | Image-capable segmenter model. When `VISION_MODEL` is empty, it reuses `base`. |
+| `base` | VIVIAI | `gemini-2.5-flash` | Fast default model for normal grading and text tasks. |
+| `vision` | VIVIAI | `gemini-2.5-flash` | Fast image-capable segmenter model. When `VISION_MODEL` is empty, it reuses `base`. |
 | `ocr` | Mathpix + local fallback | `mathpix:v3/text -> tesseract:eng` | Dedicated OCR evidence layer for page text, math symbols, handwritten work, and header probes. |
 | `review` | VIVIAI | `gemini-3-pro-preview` | Slower/stronger reviewer for higher-risk grading. |
 | `explain` | VIVIAI | `gemini-2.5-flash-thinking` | Explanation and follow-up tutoring path. |
@@ -63,7 +63,7 @@ The regression evidence is in `reports/ocr_compare/demo_input_guarded_stability_
    - Otherwise use `ANTHROPIC_API_KEY` + `ANTHROPIC_BASE_URL`. For `https://api.viviai.cc`, this is normalized to OpenAI-compatible VIVIAI.
 
 2. `vision`
-   - If DashScope and `VISION_MODEL` are set, use that dedicated visual model.
+   - If DashScope or the default/Viviai provider and `VISION_MODEL` are set, use that dedicated visual model.
    - Otherwise reuse `base`.
 
 3. `ocr`
@@ -90,7 +90,7 @@ The regression evidence is in `reports/ocr_compare/demo_input_guarded_stability_
 | `ANTHROPIC_API_KEY` | Default provider key, currently used through VIVIAI. |
 | `ANTHROPIC_BASE_URL` | Default provider base URL, currently `https://api.viviai.cc`. |
 | `BASE_MODEL` | Fast model for base grading and text tasks. |
-| `VISION_MODEL` | Optional dedicated visual model; empty means reuse `base`. |
+| `VISION_MODEL` | Dedicated visual model for interactive uploads; empty means reuse `base`. |
 | `OCR_MODEL` | Optional non-Mathpix OCR model. Keep empty when Mathpix is configured. |
 | `MATHPIX_APP_ID` / `MATHPIX_APP_KEY` | Enables Mathpix Convert API OCR. |
 | `LOCAL_OCR_ENABLED` | Enables local tesseract fallback/probes. |

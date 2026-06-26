@@ -55,7 +55,7 @@ export function SolutionPanel({ question }: SolutionPanelProps) {
     ) {
       setExplanation(question.solution_text)
     }
-  }, [explanation, question.solution_text]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [explanation, question.solution_text])
 
   const handleToggle = async () => {
     if (open) {

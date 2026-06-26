@@ -2006,14 +2006,15 @@ def segment_and_extract(
     client: ModelClient,
     user_hint: str = "",
     ocr_client: ModelClient | None = None,
+    fast_mode: bool = False,
 ) -> list[dict]:
     """
     一次 LLM 调用完成切题 + 内容提取（支持多页）。
 
     - images: 单张 PIL Image 或按阅读顺序的 list[PIL Image]。多页时 VL 模型一次看到所有图，
       能正确合并跨页题目。
-    - 如果提供 ocr_client，会为每张图并行调用 OCR 做交叉校验（总耗时 ≈ max(VL, 单张 OCR)，
-      因为所有调用都在同一线程池里并发）。
+    - 如果提供 ocr_client，会为每张图并行调用 OCR 做交叉校验。fast_mode 下不等待
+      慢 OCR，只使用已经完成的 OCR 结果，避免辅助证据拖慢交互识别。
 
     返回 list[dict]，每个 dict 包含：
     question_number, bbox, question_text, student_answer, working_steps, image_quality, confidence, page
@@ -2066,7 +2067,13 @@ def segment_and_extract(
 
     ocr_reference = ""
     if ocr_futures and _env_truthy("SEGMENT_OCR_HINT_ENABLED", "1"):
-        hint_timeout = max(0.0, float(os.environ.get("SEGMENT_OCR_HINT_TIMEOUT_SECONDS", "8")))
+        hint_timeout_key = (
+            "SEGMENT_FAST_OCR_HINT_TIMEOUT_SECONDS"
+            if fast_mode
+            else "SEGMENT_OCR_HINT_TIMEOUT_SECONDS"
+        )
+        hint_timeout_default = "0" if fast_mode else "8"
+        hint_timeout = max(0.0, float(os.environ.get(hint_timeout_key, hint_timeout_default)))
         done, _pending = wait([future for _i, future in ocr_futures], timeout=hint_timeout)
         for i, future in ocr_futures:
             if future not in done:
@@ -2136,12 +2143,13 @@ def segment_and_extract(
         task=TaskType.segment,
         prompt=prompt,
         images=vl_images_b64,
-        max_tokens=8192,
+        max_tokens=4096 if fast_mode else 8192,
     )
 
     last_err: Exception = RuntimeError("no attempts made")
     items: list[dict] | None = None
-    for attempt in range(3):
+    attempt_count = 1 if fast_mode else 3
+    for attempt in range(attempt_count):
         try:
             raw = client.call(request)
             parsed = parse_json_array(raw)
@@ -2152,7 +2160,7 @@ def segment_and_extract(
         except Exception as e:
             last_err = e
             logging.getLogger("pipeline.segmenter").warning(
-                "segment_and_extract attempt %d/3 failed: %s", attempt + 1, e,
+                "segment_and_extract attempt %d/%d failed: %s", attempt + 1, attempt_count, e,
             )
             request = ModelRequest(
                 task=TaskType.segment,
@@ -2170,11 +2178,23 @@ def segment_and_extract(
     # 收取并行 OCR 结果（按页拼接）
     ocr_text = ""
     if ocr_futures:
+        ready_after_vl = set()
+        if fast_mode:
+            drain_timeout = max(
+                0.0,
+                float(os.environ.get("SEGMENT_FAST_OCR_DRAIN_TIMEOUT_SECONDS", "0")),
+            )
+            ready_after_vl, _pending = wait(
+                [future for _i, future in ocr_futures],
+                timeout=drain_timeout,
+            )
         for i, fut in ocr_futures:
             if i in ocr_text_by_page:
                 continue
+            if fast_mode and fut not in ready_after_vl:
+                continue
             try:
-                t = fut.result(timeout=30) or ""
+                t = fut.result(timeout=0 if fast_mode else 30) or ""
             except Exception as e:
                 logging.getLogger("pipeline.segmenter").warning("OCR page %d failed: %s", i + 1, e)
                 t = ""
@@ -2186,7 +2206,8 @@ def segment_and_extract(
 
     if items is None:
         logging.getLogger("pipeline.segmenter").warning(
-            "segment_and_extract failed after 3 attempts: %s — returning empty",
+            "segment_and_extract failed after %d attempt(s): %s — returning empty",
+            attempt_count,
             last_err,
         )
         return _empty_fallback(widths[0], heights[0])

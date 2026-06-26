@@ -33,11 +33,14 @@ export function StatusMessage({
   const [panelVisible, setPanelVisible] = useState(false)
 
   useEffect(() => {
-    if (loading) setPanelVisible(true)
+    if (!loading) return
+    const timer = window.setTimeout(() => setPanelVisible(true), 0)
+    return () => window.clearTimeout(timer)
   }, [loading])
 
   useEffect(() => {
-    setPanelVisible(false)
+    const timer = window.setTimeout(() => setPanelVisible(false), 0)
+    return () => window.clearTimeout(timer)
   }, [dismissPanelVersion])
 
   const handleThinkingDismiss = useCallback(() => {

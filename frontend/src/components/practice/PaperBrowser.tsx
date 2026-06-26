@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchPapers, getPaperDownloadUrl } from '../../api/practice'
 import type { PaperListItem } from '../../api/practice'
 
@@ -27,7 +27,7 @@ export function PaperBrowser({ defaultOpen = false }: { defaultOpen?: boolean } 
   const [filterYear, setFilterYear] = useState<number | undefined>()
   const [filterSession, setFilterSession] = useState<string | undefined>()
 
-  const loadPapers = async () => {
+  const loadPapers = useCallback(async () => {
     setLoading(true)
     try {
       const resp = await fetchPapers({
@@ -41,11 +41,11 @@ export function PaperBrowser({ defaultOpen = false }: { defaultOpen?: boolean } 
     } finally {
       setLoading(false)
     }
-  }
+  }, [filterPaper, filterSession, filterYear])
 
   useEffect(() => {
     if (show) loadPapers()
-  }, [show, filterPaper, filterYear, filterSession])
+  }, [show, loadPapers])
 
   if (!show) {
     return (

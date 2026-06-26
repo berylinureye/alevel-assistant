@@ -587,11 +587,12 @@ export function UploadForm({
   }, [files])
 
   useEffect(() => {
+    const controllers = prepareControllersRef.current
     return () => {
-      for (const controller of prepareControllersRef.current.values()) {
+      for (const controller of controllers.values()) {
         controller.abort()
       }
-      prepareControllersRef.current.clear()
+      controllers.clear()
     }
   }, [])
 
@@ -629,7 +630,7 @@ export function UploadForm({
             })
             return next
           })
-        } catch (err) {
+        } catch {
           if (controller.signal.aborted || !filesRef.current.includes(file)) continue
           setPrepareStates((state) => {
             const next = new Map(state)
