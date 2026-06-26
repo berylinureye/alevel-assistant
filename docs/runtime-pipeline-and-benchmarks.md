@@ -7,59 +7,113 @@
 A-Level Assistant 不是“上传图片后等一个大模型回答”的系统。当前实现是一条可观测的学习闭环：
 
 ```text
-Upload
-  -> optional prepare/cache
-  -> streaming analyze
-  -> OCR + vision segmentation
-  -> paper/mark-scheme context
-  -> fast-first grading
-  -> deterministic verification
-  -> SSE question/summary events
-  -> explanation/practice recommendation
-  -> feedback + effectiveness metrics
+上传
+  -> 可选预处理 / 缓存
+  -> 流式批改入口
+  -> OCR + Vision 切题
+  -> 真题 / Mark Scheme 上下文
+  -> 快速首轮批改
+  -> 确定性规则校验
+  -> SSE 逐题返回
+  -> 讲解 / 推荐练习
+  -> 反馈与效果指标
 ```
 
 设计取舍是：**先返回可信首轮结果，但不把不确定题伪装成确定结论。** 慢题、低置信题、识别超时题和空白/答案页-only 样本应显示为 `needs_review` 或 timeout placeholder。
+
+## 快速手机模式是做什么的
+
+这里说的“快速手机模式”，代码里主要对应图片上传时的 `fast_batch=true` 路径。它是为真实学生手机拍照场景设计的：学生通常一次拍 1 到多张作业图，图里可能有阴影、倾斜、低清晰度、跨页题、空白题或只写了过程没有题干。如果系统等所有题都完整识别、批改、总结完才显示结果，体感会很慢，学生也不知道是不是卡住了。
+
+快速手机模式解决的是三件事：
+
+- 先返回：只要有题目完成识别和批改，就通过 SSE 先推给前端，不等整页所有题都结束。
+- 少重复：`/prepare-upload` 会用图片 hash cache 和 in-flight dedupe，避免同一张图重复识别。
+- 不乱判：慢题、低置信题或识别超时题不会硬编分数，而是返回 `needs_review=true` 的占位结果，提示用户复核或重拍。
+
+它不是“降低质量换速度”的模式，而是“先给可用结果，把不确定性显式标出来”的模式。适合手机图片、多图作业和课堂/家教场景；完整 Past Paper PDF 或高风险样本仍会走更保守的路径。
 
 ## 最新主流程图
 
 ```mermaid
 flowchart TD
-  U["Student uploads image / PDF"] --> F["React UploadForm"]
-  F --> P{"PDF or image?"}
+  U["学生上传图片或 PDF"] --> F["前端上传组件"]
+  F --> P{"文件类型判断"}
 
-  P -->|"image / multi-image"| C["/prepare-upload<br/>content hash cache<br/>in-flight dedupe"]
-  C -->|"upload_ids"| S["/analyze-homework-stream"]
-  P -->|"large PDF"| L["/large-pdf/prepare<br/>thumbnail + selected pages"]
+  P -->|"图片 / 多图"| C["/prepare-upload<br/>内容哈希缓存<br/>进行中请求去重"]
+  C -->|"upload_ids"| S["/analyze-homework-stream<br/>流式批改入口"]
+  P -->|"Large PDF"| L["/large-pdf/prepare<br/>缩略图 + 选页"]
   L --> S
 
-  S --> R{"fast-first?"}
-  R -->|"image default"| I["page-level recognition<br/>parallel where possible"]
-  R -->|"non-fast / review path"| G["quality-first recognition"]
+  S --> R{"是否快速首题模式"}
+  R -->|"手机图片默认"| I["页面级识别<br/>尽量并行"]
+  R -->|"非快速 / 复核路径"| G["质量优先识别"]
 
-  I --> O["Mathpix OCR evidence<br/>local tesseract fallback"]
+  I --> O["Mathpix OCR 证据<br/>本地 OCR 弱兜底"]
   G --> O
-  O --> Q{"OCR guard"}
-  Q -->|"question/task language"| H["OCR hint to segmenter"]
-  Q -->|"handwriting-only / weak OCR"| A["audit evidence only"]
+  O --> Q{"OCR 是否可信"}
+  Q -->|"含题干任务语言"| H["作为切题提示"]
+  Q -->|"只有手写 / 证据弱"| A["只作为审计证据"]
 
-  H --> X["structured question JSON"]
+  H --> X["结构化题目 JSON"]
   A --> X
-  X --> M["paper resolver<br/>mark scheme context"]
-  M --> B["first-pass grading"]
-  B --> V["deterministic verifiers<br/>SymPy / statistics / probability / simplification"]
-  V --> D{"risk remains?"}
-  D -->|"yes"| W["review / multi-agent path<br/>or needs_review"]
-  D -->|"no"| E["SSE question event"]
+  X --> M["真题匹配<br/>Mark Scheme 上下文"]
+  M --> B["首轮批改"]
+  B --> V["确定性校验<br/>SymPy / 统计 / 概率 / 化简"]
+  V --> D{"仍有风险吗"}
+  D -->|"有"| W["复核 / 多模型路径<br/>或 needs_review"]
+  D -->|"无"| E["SSE 逐题返回"]
   W --> E
 
-  E --> T{"pending slow questions?"}
-  T -->|"short window passes"| N["timeout placeholder<br/>needs_review=true"]
-  T -->|"all ready"| Z["summary event"]
+  E --> T{"还有慢题吗"}
+  T -->|"短窗口后仍未完成"| N["超时占位结果<br/>needs_review=true"]
+  T -->|"全部完成"| Z["总结事件"]
   N --> Z
-  Z --> K["practice recommendation"]
-  K --> J["feedback/track + effectiveness dashboard"]
+  Z --> K["推荐练习"]
+  K --> J["反馈埋点 + 效果看板"]
 ```
+
+## 详细设计解释
+
+### 1. 上传入口为什么分图片和 PDF
+
+图片和 PDF 的用户意图不同。手机图片通常是“我现在要快点知道这页作业哪里错了”；Large PDF 通常是“我上传了一整套真题，需要先选页”。所以图片默认追求快速首题返回，PDF 则先做缩略图和选页，避免把封面、空白页、答案页一起送进批改。
+
+### 2. `/prepare-upload` 为什么要做缓存和去重
+
+手机端很容易重复提交同一张图：网络抖动、用户重复点击、前端重试都会发生。内容哈希缓存可以让同图复用识别结果，in-flight dedupe 可以让正在识别的同一张图只跑一次。这两个设计不是为了“炫技”，而是直接减少等待时间和模型成本。
+
+### 3. 为什么要流式返回
+
+批改一整页作业时，某一道题可能因为图片模糊、步骤很长或模型响应慢而拖住全页。如果等所有题都完成，用户会觉得系统卡死。SSE 逐题返回让前端先展示已经可靠完成的题，用户可以先看错因和分数，剩余慢题再继续补齐。
+
+### 4. 为什么要有短等待窗口
+
+快速模式不是无限等。系统在第一题返回后，只给剩余慢题一个额外短窗口；如果还没完成，就返回 `needs_review` 占位结果。这样做是为了避免一两道慢题把整次体验拖到 1-2 分钟，同时也避免为了“快”而编造批改结论。
+
+### 5. OCR 为什么只是证据层
+
+OCR 很适合读取打印题干和部分公式，但对手写步骤、倾斜图片、低清晰度照片并不稳定。如果让 OCR 直接主导结构，可能把学生答案当题干，或把错误步骤改成正确表达。因此 OCR 只有在包含真实任务语言时才进入切题提示；否则只保留为审计证据。
+
+### 6. 为什么优先匹配 Past Paper 和 Mark Scheme
+
+A-Level 批改不是只看最终答案，很多题按 method mark、accuracy mark、结论 mark 给分。能匹配真题时，系统优先使用 Mark Scheme 作为评分依据；匹配不到时才回到开放 AI 批改。这个设计的目的，是让批改尽量接近真实阅卷，而不是只像“看起来合理的解释”。
+
+### 7. 为什么还要确定性 verifier
+
+LLM 很会解释，但会算错、漏符号、把等价表达式误判为不等价。SymPy、统计、概率和化简 verifier 负责校准封闭数学事实。它们不是替代老师或模型，而是作为安全网，专门抓那些“语言看起来对、数学事实错”的情况。
+
+### 8. 为什么要 `needs_review`
+
+教育产品里最危险的不是慢，而是给学生一个高置信但错误的结论。`needs_review` 是产品层的诚实机制：当题干缺失、答案保真不足、校验不通过或模型信心不足时，系统把风险显式展示出来，让用户知道这题需要复核或重拍。
+
+### 9. 为什么批改后接推荐练习
+
+只告诉学生“你错了”不够。有效学习闭环要告诉学生下一步练什么，所以系统会把错因、topic、subtopic、真题上下文和题库结合起来，决定自动推荐、先询问，还是不推荐。题库信号不足时不硬推，是为了避免把学生带到错误练习方向。
+
+### 10. 为什么要埋点和 benchmark
+
+这个产品的质量不能只靠主观感觉。上传成功率、首题返回时间、题号召回、判分一致率、`needs_review` 命中率、练习开始率都需要持续追踪。benchmark 的作用是让每次优化都有证据：到底更快了、还是只是把失败藏起来了。
 
 ## Frontend Entry Points
 
