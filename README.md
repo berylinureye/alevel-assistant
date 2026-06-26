@@ -22,45 +22,72 @@ A-Level Assistant 是一个面向 Cambridge A-Level Mathematics 的 AI 学习诊
 
 ## 核心架构
 
+### 汇报版流程图
+
+这版适合对外汇报、产品评审或快速介绍：重点讲清楚产品不是「拍照给答案」，而是从批改走到学习闭环。
+
+```mermaid
+flowchart LR
+  A["上传作业或真题"] --> B["识别题目与学生答案"]
+  B --> C["匹配真题与评分标准"]
+  C --> D["逐题批改与扣分解释"]
+  D --> E["规则校验与风险标记"]
+  E --> F["生成错因讲解"]
+  F --> G["推荐下一步练习"]
+  G --> H["学生练习并反馈"]
+```
+
+设计原因：A-Level Assistant 的目标不是只把答案算出来，而是把学生的一次上传变成一次有效学习闭环。前半段解决「批得准」，中间用规则校验解决「不要高置信胡判」，后半段用讲解和练习解决「知道下一步练什么」。
+
+### 详细版流程图
+
+这版用于工程沟通和问题定位：重点展示图片、PDF、Large PDF、OCR、真题匹配、批改、校验和流式返回之间的真实后端路径。
+
 ```mermaid
 flowchart TD
-  U["Student uploads image / PDF"] --> F["React UploadForm"]
-  F --> P{"PDF or image?"}
+  U["学生上传图片或 PDF"] --> F["前端上传组件"]
+  F --> P{"文件类型判断"}
 
-  P -->|"image / multi-image"| C["/prepare-upload<br/>hash cache + in-flight dedupe"]
-  C -->|"prepared upload_ids"| S["/analyze-homework-stream"]
-  P -->|"large PDF"| L["/large-pdf/prepare<br/>thumbnail + page selection"]
+  P -->|"图片 / 多图"| C["/prepare-upload<br/>哈希缓存 + 进行中请求去重"]
+  C -->|"生成 upload_ids"| S["/analyze-homework-stream<br/>流式批改入口"]
+  P -->|"Large PDF"| L["/large-pdf/prepare<br/>缩略图 + 选页"]
   L --> S
 
-  S --> R{"fast-first mode?"}
-  R -->|"yes"| I["page-level recognition<br/>parallel where possible"]
-  R -->|"no / high-risk"| G["quality-first recognition"]
+  S --> R{"是否走快速首题模式"}
+  R -->|"是"| I["页面级识别<br/>尽量并行"]
+  R -->|"否 / 高风险"| G["质量优先识别"]
 
-  I --> O["Mathpix OCR evidence<br/>local fallback probe"]
+  I --> O["Mathpix OCR 证据<br/>本地 OCR 弱兜底"]
   G --> O
-  O --> Q{"OCR guard"}
-  Q -->|"task language"| H["OCR hint to segmenter"]
-  Q -->|"handwriting-only / weak"| A["audit evidence only"]
-  H --> X["structured questions"]
+  O --> Q{"OCR 是否可信"}
+  Q -->|"含真实题干语言"| H["作为切题提示"]
+  Q -->|"只有手写或证据弱"| A["只作为审计证据"]
+  H --> X["结构化题目"]
   A --> X
 
-  X --> M["paper resolver + mark scheme context"]
-  M --> B["single-model first-pass grading"]
-  B --> T{"risk / confidence / verifier"}
-  T -->|"safe"| V["deterministic verifiers<br/>SymPy / statistics / probability / simplification"]
-  T -->|"needs review"| W["review / multi-agent path"]
+  X --> M["真题匹配 + Mark Scheme 上下文"]
+  M --> B["单模型首轮批改"]
+  B --> T{"风险 / 置信度 / 校验信号"}
+  T -->|"风险低"| V["确定性校验<br/>SymPy / 统计 / 概率 / 化简"]
+  T -->|"需要复核"| W["复核或多模型路径"]
   W --> V
 
-  V --> E["SSE question events<br/>first usable result"]
-  E --> Y{"slow remaining questions?"}
-  Y -->|"within short window"| Z["complete summary"]
-  Y -->|"too slow"| N["needs_review timeout placeholder"]
+  V --> E["SSE 逐题返回<br/>先返回可用结果"]
+  E --> Y{"剩余题是否过慢"}
+  Y -->|"短窗口内完成"| Z["生成完整总结"]
+  Y -->|"超时"| N["返回 needs_review 占位结果"]
   N --> Z
-  Z --> K["practice recommendations<br/>feedback / track events"]
-  K --> UI["Result page + explanation + next practice"]
+  Z --> K["推荐练习<br/>反馈与埋点"]
+  K --> UI["结果页<br/>讲解 + 下一题练习"]
 ```
 
 当前主路径是 **fast-first but quality-aware**：图片上传默认尽快返回首题和已完成题；低置信、空白、跨页、慢题不会被伪装成确定结论，而是通过 `needs_review`、timeout placeholder 和 verifier 暴露风险。
+
+这样设计的核心取舍有三点：
+
+- 速度上，先用缓存、并行识别和 SSE 逐题返回降低等待体感。
+- 质量上，真题优先对齐 Mark Scheme，开放批改只作为无法匹配时的降级路径。
+- 风险上，OCR、LLM 和规则校验互相制衡；不确定时宁可提示复核，也不输出看似确定但错误的结论。
 
 更完整的后端路径、阶段指标和 benchmark 结论见 [Runtime Pipeline And Benchmarks](docs/runtime-pipeline-and-benchmarks.md)。模型角色、环境变量和 OCR 链路见 [Model Routing And OCR Chain](docs/model-routing-and-ocr-chain.md)。
 
