@@ -202,6 +202,7 @@ export interface PrepareUploadResult {
   status: string
   upload_id: string
   question_count: number
+  preview_data_url?: string | null
 }
 
 export async function prepareUpload(

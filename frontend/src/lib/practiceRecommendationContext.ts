@@ -118,6 +118,8 @@ export function buildPracticeRequest(args: {
     error_type: q.error_type,
     knowledge_tags: q.knowledge_tags ?? [],
     needs_review: q.needs_review,
+    questionbank_question_id: q.questionbank_question_id ?? null,
+    questionbank_match_confidence: q.questionbank_match_confidence ?? null,
   }))
 
   return {

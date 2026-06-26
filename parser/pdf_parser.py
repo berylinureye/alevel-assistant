@@ -107,11 +107,12 @@ QP_EXTRACTION_PROMPT = """\
 2. 只提取正式题目（每个独立题号一条记录，子题如 (a)(b) 拆分）
 3. 数学公式必须用 LaTeX 格式，用 $...$ 包裹
 4. 题号格式保持原样: "1", "2(a)", "2(b)(i)"
-5. 如果题目包含图表，设 has_diagram 为 true 并用文字描述图表内容
-6. 难度 difficulty: 1-2=低 (基础套公式), 3=中 (多步推理), 4-5=高 (综合/证明/建模)
-7. topic 必须使用下面 PAPER_TOPICS 的 key 之一 (大类)
-8. subtopic 必须使用对应 paper 的 subtopic key (细分知识点)
-9. tags 可以填多个细分知识点
+5. 如果子题依赖共同题干、给定数据、表格、图或前一小问定义，把这些共享条件放入 parent_stem；question_text 只放本小问要求
+6. 如果题目包含图表，设 has_diagram 为 true 并用文字描述图表内容
+7. 难度 difficulty: 1-2=低 (基础套公式), 3=中 (多步推理), 4-5=高 (综合/证明/建模)
+8. topic 必须使用下面 PAPER_TOPICS 的 key 之一 (大类)
+9. subtopic 必须使用对应 paper 的 subtopic key (细分知识点)
+10. tags 可以填多个细分知识点
 
 【知识点分类参考】
 - Paper 1 大类: quadratics, functions, coordinate_geometry, circular_measure, trigonometry_p1, series, differentiation_p1, integration_p1
@@ -125,6 +126,7 @@ QP_EXTRACTION_PROMPT = """\
 [
   {
     "question_number": "1",
+    "parent_stem": null,
     "question_text": "Find $\\\\int x \\\\sin(2x) \\\\, dx$.",
     "marks": 4,
     "topic": "integration_p3",
@@ -139,7 +141,7 @@ QP_EXTRACTION_PROMPT = """\
 
 要求:
 - 提取所有题目，不要遗漏
-- 题目文字必须完整，包括所有条件和要求 (a) (b) 子题分别提取
+- 题目文字必须完整；(a) (b) 子题分别提取，且每个子题必须保留可独立作答所需的 parent_stem
 - marks (分值) 在题号后面的方括号中，如 [4]
 """
 
@@ -417,6 +419,7 @@ def parse_question_paper(
         item = QuestionBankItem(
             question_number=qnum,
             parent_number=_extract_parent(qnum),
+            parent_stem=q.get("parent_stem"),
             question_text=q.get("question_text", ""),
             marks=q.get("marks", 0),
             topic=q.get("topic", "unknown"),

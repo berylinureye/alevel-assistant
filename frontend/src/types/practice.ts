@@ -5,6 +5,7 @@ export interface QuestionBankItem {
   paper_id: number | null
   question_number: string
   parent_number: string | null
+  parent_stem?: string | null
   question_text: string
   marks: number
   topic: string
@@ -137,6 +138,8 @@ export interface PracticeRecommendationSourceQuestion {
   error_type: string | null
   knowledge_tags: string[]
   needs_review: boolean
+  questionbank_question_id?: number | null
+  questionbank_match_confidence?: 'high' | 'medium' | 'low' | null
 }
 
 export interface PracticeRecommendationPriorityTopic {

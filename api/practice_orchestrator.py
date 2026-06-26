@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from api.feedback import log_ai_event
-from questionbank.database import ensure_db, get_random_questions
+from questionbank.database import ensure_db, get_question_by_id, get_random_questions
 from questionbank.models import QuestionBankItem
 from scraper.taxonomy import PAPER_TOPICS
 
@@ -92,6 +92,8 @@ class PracticeSourceQuestion(BaseModel):
     error_type: Optional[str] = None
     knowledge_tags: list[str] = Field(default_factory=list)
     needs_review: bool = False
+    questionbank_question_id: Optional[int] = None
+    questionbank_match_confidence: Optional[Literal["high", "medium", "low"]] = None
 
 
 class PracticeRecommendationRequest(BaseModel):
@@ -206,31 +208,68 @@ def _candidate_topic_keys(value: object, paper_num: Optional[int]) -> list[str]:
     return ordered
 
 
+def _append_topic_keys(ordered: list[str], value: object, paper_num: Optional[int]) -> None:
+    for topic in _candidate_topic_keys(value, paper_num):
+        if topic not in ordered:
+            ordered.append(topic)
+
+
+def _questionbank_topics_for_source_questions(
+    questions: list[PracticeSourceQuestion],
+    paper_num: Optional[int],
+) -> list[str]:
+    question_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for question in questions:
+        if question.is_correct:
+            continue
+        question_id = question.questionbank_question_id
+        if not question_id or question_id in seen_ids:
+            continue
+        seen_ids.add(question_id)
+        question_ids.append(question_id)
+
+    if not question_ids:
+        return []
+
+    ordered: list[str] = []
+    conn = ensure_db()
+    try:
+        for question_id in question_ids:
+            item = get_question_by_id(conn, question_id)
+            if not item:
+                continue
+            _append_topic_keys(ordered, item.topic, item.paper_num or paper_num)
+            _append_topic_keys(ordered, item.subtopic, item.paper_num or paper_num)
+            for tag in item.tags:
+                _append_topic_keys(ordered, tag, item.paper_num or paper_num)
+    finally:
+        conn.close()
+
+    return ordered
+
+
 def derive_candidate_topics(req: PracticeRecommendationRequest) -> list[str]:
     paper_num = normalise_paper_num(req.context.paper_num)
     ordered: list[str] = []
 
+    for topic in _questionbank_topics_for_source_questions(req.questions, paper_num):
+        if topic not in ordered:
+            ordered.append(topic)
+
     for item in req.priority_topics:
         for key in ("topic", "subtopic", "chapter"):
-            for topic in _candidate_topic_keys(item.get(key), paper_num):
-                if topic not in ordered:
-                    ordered.append(topic)
+            _append_topic_keys(ordered, item.get(key), paper_num)
 
     for key, _count in sorted(req.knowledge_tags_summary.items(), key=lambda kv: kv[1], reverse=True):
-        for topic in _candidate_topic_keys(key, paper_num):
-            if topic not in ordered:
-                ordered.append(topic)
+        _append_topic_keys(ordered, key, paper_num)
 
     for question in req.questions:
         if question.is_correct:
             continue
         for tag in question.knowledge_tags:
-            for topic in _candidate_topic_keys(tag, paper_num):
-                if topic not in ordered:
-                    ordered.append(topic)
-        for topic in _candidate_topic_keys(question.error_type, paper_num):
-            if topic not in ordered:
-                ordered.append(topic)
+            _append_topic_keys(ordered, tag, paper_num)
+        _append_topic_keys(ordered, question.error_type, paper_num)
 
     return ordered
 

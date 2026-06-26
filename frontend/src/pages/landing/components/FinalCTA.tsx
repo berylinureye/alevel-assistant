@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { stashPendingUpload } from '../lib/pendingUpload'
 
 export function FinalCTA() {

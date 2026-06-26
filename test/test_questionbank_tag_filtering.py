@@ -4,6 +4,7 @@ from pathlib import Path
 
 from questionbank.database import (
     get_connection,
+    get_question_by_id,
     get_random_questions,
     init_db,
     insert_question,
@@ -98,3 +99,59 @@ def test_get_random_questions_keeps_exclude_filter_with_tag_lookup(tmp_path):
 
     assert total == 0
     assert questions == []
+
+
+def test_legacy_subquestion_gets_previous_sibling_as_parent_context(tmp_path):
+    db_path = tmp_path / "questions.db"
+    init_db(db_path)
+    conn = get_connection(db_path)
+    try:
+        paper_id = upsert_paper(
+            conn,
+            subject_code="9709",
+            year=2017,
+            session="w",
+            paper_num=6,
+            variant=3,
+            pdf_path="9709_w17_qp_63.pdf",
+        )
+        insert_question(
+            conn,
+            QuestionBankItem(
+                paper_id=paper_id,
+                question_number="4(i)",
+                parent_number="4",
+                question_text=(
+                    "A fair die with faces numbered 1, 2, 2, 2, 3, 6 is thrown. "
+                    "The score, $X$, is found by squaring the number on the face "
+                    "the die shows and then subtracting 4. Draw up a table to show "
+                    "the probability distribution of $X$."
+                ),
+                topic="discrete_random_variables",
+                subtopic="probability_distribution",
+                difficulty=2,
+            ),
+        )
+        q4ii_id = insert_question(
+            conn,
+            QuestionBankItem(
+                paper_id=paper_id,
+                question_number="4(ii)",
+                parent_number="4",
+                question_text="Find $E(X)$ and $\\mathrm{Var}(X)$.",
+                topic="discrete_random_variables",
+                subtopic="expectation_and_variance",
+                difficulty=2,
+            ),
+        )
+        conn.commit()
+
+        question = get_question_by_id(conn, q4ii_id)
+    finally:
+        conn.close()
+
+    assert question is not None
+    assert question.question_text == "Find $E(X)$ and $\\mathrm{Var}(X)$."
+    assert question.parent_stem is not None
+    assert "faces numbered 1, 2, 2, 2, 3, 6" in question.parent_stem
+    assert "Q4(i):" in question.parent_stem

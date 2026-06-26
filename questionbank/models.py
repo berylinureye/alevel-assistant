@@ -34,6 +34,7 @@ class QuestionBankItem(BaseModel):
     # 题目信息
     question_number: str = Field(description="题号, e.g. '1', '2(a)', '3(b)(ii)'")
     parent_number: Optional[str] = Field(default=None, description="父题号")
+    parent_stem: Optional[str] = Field(default=None, description="父题题干或前序小问上下文")
     question_text: str = Field(description="题目文字 (含 LaTeX)")
     marks: int = Field(default=0, description="分值")
 

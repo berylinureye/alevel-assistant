@@ -266,6 +266,91 @@ def test_auto_recommendations_fall_back_to_later_candidate_topic(monkeypatch):
     assert response.recommendations[0].question_id == 42
 
 
+def test_matched_question_id_drives_recommendation_topic_before_generic_statistics(monkeypatch):
+    calls: list[str] = []
+
+    class FakeConnection:
+        def close(self):
+            pass
+
+    def fake_get_question_by_id(_conn, question_id):
+        assert question_id == 2053
+        return QuestionBankItem(
+            id=2053,
+            question_number="4(ii)",
+            parent_number="4",
+            question_text="Find $E(X)$ and $\\mathrm{Var}(X)$.",
+            parent_stem=(
+                "A fair die with faces numbered 1, 2, 2, 2, 3, 6 is thrown. "
+                "The score, $X$, is found by squaring the number on the face the die shows "
+                "and then subtracting 4."
+            ),
+            topic="discrete_random_variables",
+            subtopic="expectation_and_variance",
+            difficulty=2,
+            paper_num=6,
+        )
+
+    def fake_query(_req, topic):
+        calls.append(topic)
+        if topic == "discrete_random_variables":
+            return [
+                PracticeRecommendation(
+                    id="foundation-2053",
+                    question_id=2053,
+                    topic="discrete_random_variables",
+                    subtopic="expectation_and_variance",
+                    difficulty="foundation",
+                    title="基础修复",
+                    reason="matched question topic had a real candidate",
+                    trigger="auto",
+                    paper_num=6,
+                    question=fake_get_question_by_id(FakeConnection(), 2053),
+                )
+            ]
+        return []
+
+    import api.practice_orchestrator as orchestrator
+
+    monkeypatch.setattr(orchestrator, "ensure_db", lambda: FakeConnection())
+    monkeypatch.setattr(orchestrator, "get_question_by_id", fake_get_question_by_id, raising=False)
+    monkeypatch.setattr(orchestrator, "_query_recommendations", fake_query)
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="past_paper",
+            paper_num=6,
+            match_confidence="low",
+            confirmed_by_user=True,
+            grading_route="past_paper_mark_scheme",
+        ),
+        priority_topics=[{"topic": "statistics"}],
+        knowledge_tags_summary={"statistics": 1},
+        questions=[
+            {
+                "question_number": "4(ii)",
+                "score": 0,
+                "full_score": 3,
+                "is_correct": False,
+                "error_type": "incomplete_working",
+                "knowledge_tags": ["statistics"],
+                "questionbank_question_id": 2053,
+                "questionbank_match_confidence": "high",
+            }
+        ],
+        count=1,
+    )
+
+    response = asyncio.run(recommend_practice(req))
+
+    assert calls[0] == "discrete_random_variables"
+    assert "discrete_random_variables" in calls
+    assert response.recommendation_mode == "auto"
+    assert response.detected_topic == "discrete_random_variables"
+    assert response.recommendations[0].question_id == 2053
+    assert response.recommendations[0].question is not None
+    assert "faces numbered 1, 2, 2, 2, 3, 6" in (response.recommendations[0].question.parent_stem or "")
+
+
 def test_auto_recommendations_fill_count_across_candidate_topics(monkeypatch):
     calls: list[tuple[str, int, list[int]]] = []
 

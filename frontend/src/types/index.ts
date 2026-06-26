@@ -61,6 +61,9 @@ export interface QuestionResult {
   mark_scheme_confidence?: 'high' | 'medium' | 'low' | null
   /** mark scheme 上下文不可用时的可见降级原因 */
   mark_scheme_context_error?: string | null
+  /** 匹配到题库真题时的题库题目 id，用于后续练习推荐反查真实 topic/题干 */
+  questionbank_question_id?: number | null
+  questionbank_match_confidence?: 'high' | 'medium' | 'low' | null
 }
 
 export interface PageSummary {

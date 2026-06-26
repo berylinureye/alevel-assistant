@@ -18,6 +18,8 @@ export function PracticeQuestionCard({ question, index, total, children }: Props
   const source = question.year
     ? `${question.year} ${SESSION_LABELS[question.session ?? ''] ?? ''} Paper ${question.paper_num} V${question.variant}`
     : null
+  const parentStem = question.parent_stem?.trim()
+  const diagramDescription = question.diagram_description?.trim()
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -44,7 +46,40 @@ export function PracticeQuestionCard({ question, index, total, children }: Props
         </div>
       </div>
 
+      {/* Parent stem / shared context */}
+      {(parentStem || diagramDescription) && (
+        <div className="mb-4 border-l-4 border-blue-200 bg-blue-50/70 px-4 py-3">
+          {parentStem && (
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                题干 / 已知条件
+              </p>
+              <div
+                className="prose prose-sm max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{ __html: renderLatex(parentStem) }}
+              />
+            </div>
+          )}
+          {diagramDescription && (
+            <div className={parentStem ? 'mt-3 border-t border-blue-100 pt-3' : ''}>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                图表信息
+              </p>
+              <div
+                className="prose prose-sm max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{ __html: renderLatex(diagramDescription) }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Question text */}
+      {(parentStem || diagramDescription) && (
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+          本小问
+        </p>
+      )}
       <div
         className="prose prose-sm mb-4 max-w-none text-gray-700"
         dangerouslySetInnerHTML={{ __html: renderLatex(question.question_text) }}

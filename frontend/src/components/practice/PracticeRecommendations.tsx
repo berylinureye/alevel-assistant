@@ -82,6 +82,9 @@ function recommendationResponseKey(response: PracticeRecommendationResponse | un
         item.title,
         item.reason,
         item.source_label,
+        item.question?.parent_stem,
+        item.question?.question_text,
+        item.question?.diagram_description,
       ]))
       .join('|'),
   ])

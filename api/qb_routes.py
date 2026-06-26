@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
+import re
 import time
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
@@ -36,6 +38,146 @@ from scraper.taxonomy import (
 )
 
 qb_router = APIRouter(prefix="/questions", tags=["question-bank"])
+
+
+def _dedupe_strings(values: list[str | None]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(text)
+    return out
+
+
+def _normalise_answer_text(value: str | None) -> str:
+    text = str(value or "").strip().lower()
+    text = text.replace("\\(", "").replace("\\)", "").replace("$", "")
+    text = re.sub(r"\\(?:mathrm|text|operatorname)\{([^{}]*)\}", r"\1", text)
+    text = re.sub(r"\\[a-zA-Z]+", "", text)
+    text = text.replace("{", "").replace("}", "")
+    text = text.replace("−", "-").replace("–", "-")
+    text = re.sub(r"\s+", "", text)
+    return text
+
+
+def _numeric_tokens(value: str | None) -> list[float]:
+    text = str(value or "").replace(",", "")
+    out: list[float] = []
+    for frac in re.finditer(r"(?<![\w.])(-?\d+)\s*/\s*(-?\d+)(?![\w.])", text):
+        den = float(frac.group(2))
+        if den != 0:
+            out.append(float(frac.group(1)) / den)
+    for token in re.finditer(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])", text):
+        try:
+            out.append(float(token.group(0)))
+        except ValueError:
+            continue
+    return out
+
+
+def _answers_match(student_answer: str, reference_answer: str | None) -> bool:
+    if not student_answer.strip() or not str(reference_answer or "").strip():
+        return False
+
+    student_norm = _normalise_answer_text(student_answer)
+    reference_norm = _normalise_answer_text(reference_answer)
+    if student_norm and reference_norm and student_norm == reference_norm:
+        return True
+
+    student_nums = _numeric_tokens(student_answer)
+    reference_nums = _numeric_tokens(reference_answer)
+    if not student_nums or not reference_nums:
+        return False
+    return any(abs(s - r) <= max(1e-9, abs(r) * 1e-6) for s in student_nums for r in reference_nums)
+
+
+def _derive_normal_expected_count(question: QuestionBankItem) -> str | None:
+    text = f"{question.parent_stem or ''}\n{question.question_text or ''}"
+    low = text.lower()
+    if "standard deviation" not in low or "expect" not in low:
+        return None
+
+    count_match = (
+        re.search(r"\bbuys\s+(\d+)\b", low)
+        or re.search(r"\b(\d+)\s+of\s+these\b", low)
+        or re.search(r"\b(\d+)\s+(?:bags|items|objects|people|students)\b", low)
+    )
+    z_match = re.search(
+        r"more\s+than\s+([0-9]+(?:\.[0-9]+)?)\s+standard\s+deviations?\s+above",
+        low,
+    )
+    if not count_match or not z_match:
+        return None
+
+    count = int(count_match.group(1))
+    z = float(z_match.group(1))
+    upper_tail = 0.5 * math.erfc(z / math.sqrt(2))
+    expected = count * upper_tail
+    return str(int(round(expected)))
+
+
+def _practice_reference_answer(question: QuestionBankItem) -> str | None:
+    explicit = str(question.correct_answer or "").strip()
+    if explicit:
+        return explicit
+    if question.topic == "normal_distribution" or question.subtopic == "expected_value":
+        return _derive_normal_expected_count(question)
+    return None
+
+
+def _local_practice_grade(question: QuestionBankItem, body: SubmitAnswerRequest) -> dict:
+    full_score = float(question.marks or (len(question.marking_points or []) or 1))
+    reference = _practice_reference_answer(question)
+    tags = _dedupe_strings([question.topic, question.subtopic, *(question.tags or [])])
+
+    if not body.student_answer.strip():
+        return {
+            "is_correct": False,
+            "score": 0.0,
+            "full_score": full_score,
+            "error_type": "unanswered",
+            "short_feedback": "还没有看到你的最终答案，请先补完整再提交。",
+            "knowledge_tags": tags,
+            "student_feedback": "先写出最终答案；有过程的话也可以把关键步骤填在下面。",
+        }
+
+    if reference and _answers_match(body.student_answer, reference):
+        return {
+            "is_correct": True,
+            "score": full_score,
+            "full_score": full_score,
+            "error_type": "correct",
+            "short_feedback": "答案正确。",
+            "knowledge_tags": tags,
+            "student_feedback": "答案正确。继续保持这种题型的节奏。",
+        }
+
+    if reference:
+        return {
+            "is_correct": False,
+            "score": 0.0,
+            "full_score": full_score,
+            "error_type": "incorrect_answer",
+            "short_feedback": f"答案还不对。参考答案是 {reference}。",
+            "knowledge_tags": tags,
+            "student_feedback": "先对照参考答案检查标准化、查表或代入步骤；如果只是四舍五入差异，请保留更多有效数字再提交。",
+        }
+
+    return {
+        "is_correct": False,
+        "score": 0.0,
+        "full_score": full_score,
+        "error_type": "missing_reference_answer",
+        "short_feedback": "这道题暂时缺少题库参考答案，无法自动判定，需要人工复核。",
+        "knowledge_tags": tags,
+        "student_feedback": "题库缺少参考答案；你可以先查看 marking points 或换一道同主题题继续练。",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -303,12 +445,9 @@ async def question_bank_stats() -> QuestionBankStats:
 async def submit_answer(body: SubmitAnswerRequest, request: Request):
     """
     提交答案并获取批改结果。
-    复用现有的 grading pipeline。
+    练习题来自题库，优先用题库参考答案/marking points 做快速判分，避免
+    用户提交答案后因为模型长调用一直停在“批改中”。
     """
-    from grader.grader import grade_question as do_grade
-    from models.schemas import QuestionData
-    from router.models import ModelRole, TaskType
-
     started_at = time.perf_counter()
 
     # 1. 获取题目信息
@@ -323,41 +462,7 @@ async def submit_answer(body: SubmitAnswerRequest, request: Request):
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
 
-    # 2. 构造 QuestionData (复用现有 schema)
-    question_data = QuestionData(
-        question_number=question.question_number,
-        bbox=[],
-        question_text=question.question_text,
-        student_answer=body.student_answer,
-        working_steps=body.working_steps,
-        image_quality="good",
-        confidence=1.0,
-    )
-
-    # 3. 调用 grader
-    registry = getattr(request.app.state, "registry", None)
-    if registry is None:
-        from router.models import build_registry
-        registry = build_registry()
-
-    base_client = registry[ModelRole.base]
-
-    try:
-        result = await run_in_threadpool(do_grade, question_data, base_client, TaskType.grade)
-    except Exception as exc:
-        log_ai_event(
-            "practice_answer_graded",
-            int((time.perf_counter() - started_at) * 1000),
-            {
-                "status": "error",
-                "question_id": body.question_id,
-                "error_code": "GRADING_ERROR",
-            },
-        )
-        raise HTTPException(
-            status_code=500,
-            detail={"error_code": "GRADING_ERROR", "message": str(exc)},
-        )
+    grade_result = _local_practice_grade(question, body)
 
     log_ai_event(
         "practice_answer_graded",
@@ -365,30 +470,22 @@ async def submit_answer(body: SubmitAnswerRequest, request: Request):
         {
             "status": "success",
             "question_id": body.question_id,
-            "is_correct": result.is_correct,
-            "score": result.score,
-            "full_score": result.full_score,
-            "error_type": result.error_type,
-            "knowledge_tags": result.knowledge_tags,
+            "is_correct": grade_result["is_correct"],
+            "score": grade_result["score"],
+            "full_score": grade_result["full_score"],
+            "error_type": grade_result["error_type"],
+            "knowledge_tags": grade_result["knowledge_tags"],
             "paper_num": question.paper_num,
             "difficulty": question.difficulty,
+            "grading_path": "local_reference_answer",
         },
     )
 
-    # 4. 附加题库中的标准答案
     return {
         "status": "success",
         "question_id": body.question_id,
-        "grade_result": {
-            "is_correct": result.is_correct,
-            "score": result.score,
-            "full_score": result.full_score,
-            "error_type": result.error_type,
-            "short_feedback": result.short_feedback,
-            "knowledge_tags": result.knowledge_tags,
-            "student_feedback": result.student_feedback,
-        },
-        "reference_answer": question.correct_answer,
+        "grade_result": grade_result,
+        "reference_answer": _practice_reference_answer(question),
         "marking_points": question.marking_points,
         "source": {
             "year": question.year,

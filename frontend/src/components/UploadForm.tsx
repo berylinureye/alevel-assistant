@@ -11,6 +11,7 @@ type PrepareStatus = 'processing' | 'ready' | 'failed'
 interface PrepareState {
   status: PrepareStatus
   uploadId?: string
+  previewDataUrl?: string
 }
 
 // Must match MAX_PAGES_PER_REQUEST in api/routes.py. Uploading more than this
@@ -153,28 +154,35 @@ export interface UploadFormProps {
 function FilePreviewTile({
   file,
   previewUrl,
+  serverPreviewUrl,
   removable,
   onRemove,
   onEdit,
 }: {
   file: File
   previewUrl: string
+  serverPreviewUrl?: string
   removable: boolean
   onRemove: () => void
   onEdit?: () => void
 }) {
   const [previewFailed, setPreviewFailed] = useState(false)
+  const [serverPreviewFailed, setServerPreviewFailed] = useState(false)
   const ext = file.name.split('.').pop()?.toUpperCase() ?? 'FILE'
+  const useServerPreview = previewFailed && !!serverPreviewUrl && !serverPreviewFailed
 
   return (
     <div className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm transition hover:z-10 hover:-translate-y-0.5 hover:shadow-md">
-      {!previewFailed ? (
+      {!previewFailed || useServerPreview ? (
         <img
-          src={previewUrl}
+          src={useServerPreview ? serverPreviewUrl : previewUrl}
           alt=""
           title={file.name}
           className="h-full w-full object-cover"
-          onError={() => setPreviewFailed(true)}
+          onError={() => {
+            if (useServerPreview) setServerPreviewFailed(true)
+            else setPreviewFailed(true)
+          }}
         />
       ) : (
         <div
@@ -287,7 +295,15 @@ function ImagesPreview({
       : '确认后将统一识别'
   const currentFile = files[index]
   const currentStatus = prepareStates.get(currentFile)?.status
-  const currentPreviewFailed = previewFailedIndexes.has(index)
+  const currentPrepareState = prepareStates.get(currentFile)
+  const [serverPreviewFailedIndexes, setServerPreviewFailedIndexes] = useState<Set<number>>(() => new Set())
+  const currentLocalPreviewFailed = previewFailedIndexes.has(index)
+  const currentServerPreview = currentPrepareState?.previewDataUrl
+  const showServerPreview =
+    currentLocalPreviewFailed &&
+    !!currentServerPreview &&
+    !serverPreviewFailedIndexes.has(index)
+  const currentPreviewFailed = currentLocalPreviewFailed && !showServerPreview
   const currentExt = currentFile?.name.split('.').pop()?.toUpperCase() || currentFile?.type || '图片'
   const currentStatusText =
     currentStatus === 'ready'
@@ -327,7 +343,7 @@ function ImagesPreview({
           title="确认清楚，开始批改"
           className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-white px-3 py-2 text-[13px] font-semibold text-slate-950 shadow-sm transition hover:bg-slate-200 sm:px-4 sm:text-sm"
         >
-          确认清楚，开始批改
+          {currentPreviewFailed ? '继续识别' : '确认清楚，开始批改'}
         </button>
       </header>
 
@@ -374,19 +390,23 @@ function ImagesPreview({
                 <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white/10 text-sm font-semibold text-white">
                   {currentExt}
                 </div>
-                <h3 className="mt-4 text-base font-semibold text-white">这张图片暂时无法预览</h3>
+                <h3 className="mt-4 text-base font-semibold text-white">浏览器暂时无法预览这张图</h3>
                 <p className="mt-2 text-sm leading-6 text-white/65">
-                  浏览器没有成功渲染这张图。常见原因是 HEIC、相册原图或特殊编码格式。你可以返回重传 JPG/PNG，或继续批改让后端尝试识别。
+                  这只影响本地预览，不代表无法识别。你可以直接继续批改，后端会用原始文件重新读取；如果原图本身不清楚，再返回重传 JPG/PNG。
                 </p>
               </div>
             ) : (
               <img
-                src={urls[index]}
+                src={showServerPreview ? currentServerPreview : urls[index]}
                 alt={`第 ${index + 1} 张待确认图片`}
                 onClick={() => setZoomed((z) => !z)}
                 onError={() => {
                   setZoomed(false)
-                  setPreviewFailedIndexes((prev) => new Set(prev).add(index))
+                  if (showServerPreview) {
+                    setServerPreviewFailedIndexes((prev) => new Set(prev).add(index))
+                  } else {
+                    setPreviewFailedIndexes((prev) => new Set(prev).add(index))
+                  }
                 }}
                 className={
                   zoomed
@@ -415,7 +435,7 @@ function ImagesPreview({
               <h2 className="mt-1 text-lg font-semibold text-white">这张图够清楚吗？</h2>
               <p className="mt-2 text-sm leading-6 text-white/65">
                 {currentPreviewFailed
-                  ? '当前文件无法在浏览器里预览。建议优先返回重传 JPG/PNG；如果原图很清楚，也可以继续让后端尝试识别。'
+                  ? '当前文件只是浏览器预览失败，批改会继续上传原始文件给后端识别。原图清楚的话可以直接继续。'
                   : '请确认题干、学生步骤和页边没有被截掉。看不清时先返回重传，比批改后再发现识别错更省时间。'}
               </p>
             </div>
@@ -458,7 +478,7 @@ function ImagesPreview({
                 onClick={onStart}
                 className="inline-flex flex-1 items-center justify-center rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
               >
-                确认清楚，开始批改
+                {currentPreviewFailed ? '继续让后端识别' : '确认清楚，开始批改'}
               </button>
             </div>
           </div>
@@ -602,7 +622,11 @@ export function UploadForm({
           if (!filesRef.current.includes(file)) continue
           setPrepareStates((state) => {
             const next = new Map(state)
-            next.set(file, { status: 'ready', uploadId: result.upload_id })
+            next.set(file, {
+              status: 'ready',
+              uploadId: result.upload_id,
+              previewDataUrl: result.preview_data_url ?? undefined,
+            })
             return next
           })
         } catch (err) {
@@ -1218,6 +1242,7 @@ export function UploadForm({
                     key={`${file.name}-${file.size}-${i}`}
                     file={file}
                     previewUrl={previewUrls[i]}
+                    serverPreviewUrl={prepareStates.get(file)?.previewDataUrl}
                     removable={!loading}
                     onRemove={() => handleRemoveAt(i)}
                     onEdit={() => handleStartCrop(i)}

@@ -232,6 +232,36 @@ export function ExportModal({ config, onClose }: Props) {
                     )}
                   </div>
 
+                  {(q.parent_stem || q.diagram_description) && (
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#374151',
+                      lineHeight: '1.7',
+                      padding: '8px 10px',
+                      marginLeft: '16px',
+                      marginBottom: '8px',
+                      backgroundColor: '#eff6ff',
+                      borderLeft: '3px solid #93c5fd',
+                    }}>
+                      {q.parent_stem && (
+                        <>
+                          <div style={{ fontSize: '9px', fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', marginBottom: '2px' }}>
+                            Given
+                          </div>
+                          <div dangerouslySetInnerHTML={{ __html: renderLatex(q.parent_stem) }} />
+                        </>
+                      )}
+                      {q.diagram_description && (
+                        <div style={{ marginTop: q.parent_stem ? '6px' : 0 }}>
+                          <div style={{ fontSize: '9px', fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', marginBottom: '2px' }}>
+                            Diagram
+                          </div>
+                          <div dangerouslySetInnerHTML={{ __html: renderLatex(q.diagram_description) }} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Question text */}
                   <div
                     style={{ fontSize: '13px', color: '#333', lineHeight: '1.7', paddingLeft: '16px' }}

@@ -84,13 +84,23 @@ MAX_FILE_BYTES  = 20 * 1024 * 1024          # 20 MB per uploaded image
 MAX_PAGES_PER_REQUEST = 24
 ALLOWED_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "HEIC", "HEIF"}
-_pipeline_semaphore = asyncio.Semaphore(2)  # max 2 concurrent pipeline executions
-_prepare_semaphore = asyncio.Semaphore(10)  # upload-time extraction is lighter than full pipeline
-PREPARE_UPLOAD_TIMEOUT_SECONDS = float(os.environ.get("PREPARE_UPLOAD_TIMEOUT_SECONDS", "120"))
-FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS", "120"))
+PREPARE_UPLOAD_TIMEOUT_SECONDS = float(os.environ.get("PREPARE_UPLOAD_TIMEOUT_SECONDS", "15"))
+FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS", "15"))
 RECOGNITION_TIMEOUT_SECONDS = float(os.environ.get("RECOGNITION_TIMEOUT_SECONDS", "90"))
 
 _register_optional_image_openers()
+
+
+def _new_import_time_semaphore(value: int) -> asyncio.Semaphore:
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+    return asyncio.Semaphore(value)
+
+
+_pipeline_semaphore = _new_import_time_semaphore(2)  # max 2 concurrent pipeline executions
+_prepare_semaphore = _new_import_time_semaphore(10)  # upload-time extraction is lighter than full pipeline
 
 
 def _get_registry(request: Request):
@@ -142,6 +152,28 @@ async def _validate_image(file: UploadFile) -> bytes:
         )
 
     return data
+
+
+def _make_preview_data_url(image_data: bytes, max_edge: int = 1800) -> str | None:
+    """Return a browser-renderable JPEG data URL for formats like HEIC."""
+    try:
+        img = Image.open(io.BytesIO(image_data))
+        img.load()
+        img.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
+        if img.mode in {"RGBA", "LA"} or (img.mode == "P" and "transparency" in img.info):
+            base = Image.new("RGB", img.size, "white")
+            alpha = img.convert("RGBA").getchannel("A")
+            base.paste(img.convert("RGB"), mask=alpha)
+            img = base
+        else:
+            img = img.convert("RGB")
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=88, optimize=True)
+        encoded = base64.b64encode(out.getvalue()).decode("ascii")
+        return f"data:image/jpeg;base64,{encoded}"
+    except Exception as exc:
+        _log.info("preview JPEG conversion skipped: %s", exc)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -480,7 +512,7 @@ def _do_prepare_extract(path: str, user_hint: str, registry) -> dict:
 
     def _run_segment() -> list[dict]:
         return segment_and_extract(
-            [img], vision_client, user_hint=user_hint, ocr_client=ocr_client,
+            [img], vision_client, user_hint=user_hint, ocr_client=ocr_client, fast_mode=True,
         )
 
     if PREPARE_UPLOAD_TIMEOUT_SECONDS > 0:
@@ -517,7 +549,10 @@ def _do_prepare_extract(path: str, user_hint: str, registry) -> dict:
     # image segment_and_extract doesn't have cross-image context, so we
     # stash the "header starts with a numbered question" signal here.
     starts_with_qnum: bool | None = None
-    if ocr_client is not None:
+    if (
+        ocr_client is not None
+        and str(getattr(ocr_client, "provider", "") or "").strip().lower() == "local_tesseract"
+    ):
         try:
             from pipeline.segmenter import (
                 _page_header_text,
@@ -538,6 +573,7 @@ async def prepare_upload(
 ) -> dict:
     _t_prepare = _time.perf_counter()
     data = await _validate_image(image)
+    preview_data_url = await run_in_threadpool(_make_preview_data_url, data)
     user_hint_clean = user_hint.strip()
     content_hash = hashlib.sha256(data).hexdigest()
     claim_status, claim_value = upload_cache.claim_prepared_template(content_hash, user_hint_clean)
@@ -571,6 +607,7 @@ async def prepare_upload(
             "upload_id": upload_id,
             "question_count": len(extracted),
             "cache_hit": True,
+            "preview_data_url": preview_data_url,
         }
 
     tmp = _write_tempfile(data, image.filename or "upload.jpg")
@@ -626,6 +663,7 @@ async def prepare_upload(
         "upload_id": upload_id,
         "question_count": len(extracted),
         "cache_hit": False,
+        "preview_data_url": preview_data_url,
     }
 
 

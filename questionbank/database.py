@@ -7,6 +7,7 @@ API 层通过 run_in_threadpool 调用这些方法。
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from pathlib import Path
 from typing import Optional
@@ -47,6 +48,7 @@ def init_db(db_path: Path | str = DB_PATH) -> None:
             paper_id        INTEGER REFERENCES papers(id),
             question_number TEXT NOT NULL,
             parent_number   TEXT,
+            parent_stem     TEXT,
             question_text   TEXT NOT NULL,
             marks           INTEGER DEFAULT 0,
             topic           TEXT DEFAULT 'unknown',
@@ -74,8 +76,126 @@ def init_db(db_path: Path | str = DB_PATH) -> None:
         CREATE INDEX IF NOT EXISTS idx_questions_paper ON questions(paper_id);
         CREATE INDEX IF NOT EXISTS idx_tags_tag ON question_tags(tag);
     """)
+    _ensure_questions_schema(conn)
     conn.commit()
     conn.close()
+
+
+def _ensure_questions_schema(conn: sqlite3.Connection) -> None:
+    """Apply lightweight migrations for existing local question-bank DBs."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(questions)")}
+    if "parent_stem" not in columns:
+        conn.execute("ALTER TABLE questions ADD COLUMN parent_stem TEXT")
+
+
+def _row_get(row: sqlite3.Row, key: str, default=None):
+    return row[key] if key in row.keys() else default
+
+
+def _dedupe_context_parts(parts: list[str]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for part in parts:
+        text = re.sub(r"\s+", " ", str(part or "")).strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(str(part).strip())
+    return deduped
+
+
+def _fallback_parent_stem(conn: sqlite3.Connection, row: sqlite3.Row) -> str | None:
+    """Recover usable context for legacy rows that only stored sub-question text.
+
+    Older parsed papers often put the shared setup into the first sub-part's
+    ``question_text`` and left later sub-parts as bare instructions. For a row
+    like Q4(ii), the previous siblings under parent Q4 are the best available
+    context without reparsing the PDF.
+    """
+    explicit = str(_row_get(row, "parent_stem") or "").strip()
+    if explicit:
+        return explicit
+
+    parent_number = str(_row_get(row, "parent_number") or "").strip()
+    if not parent_number:
+        return None
+
+    paper_id = _row_get(row, "paper_id")
+    row_id = _row_get(row, "id")
+    if row_id is None:
+        return None
+
+    if paper_id is None:
+        paper_filter = "q.paper_id IS NULL"
+        params: list = [parent_number, parent_number, row_id, row_id]
+    else:
+        paper_filter = "q.paper_id = ?"
+        params = [paper_id, parent_number, parent_number, row_id, row_id]
+
+    context_rows = conn.execute(
+        f"""SELECT q.question_number, q.parent_stem, q.question_text
+            FROM questions q
+            WHERE {paper_filter}
+              AND (
+                q.question_number = ?
+                OR q.parent_number = ?
+              )
+              AND q.id != ?
+              AND q.id < ?
+            ORDER BY q.id""",
+        params,
+    ).fetchall()
+
+    parts: list[str] = []
+    for context_row in context_rows:
+        stem = str(_row_get(context_row, "parent_stem") or "").strip()
+        if stem:
+            parts.append(stem)
+        question_text = str(context_row["question_text"] or "").strip()
+        if question_text:
+            question_number = str(context_row["question_number"] or "").strip()
+            label = f"Q{question_number}: " if question_number else ""
+            parts.append(f"{label}{question_text}")
+
+    deduped = _dedupe_context_parts(parts)
+    return "\n\n".join(deduped) if deduped else None
+
+
+def _question_item_from_row(conn: sqlite3.Connection, row: sqlite3.Row) -> QuestionBankItem:
+    item = QuestionBankItem(
+        id=row["id"],
+        paper_id=row["paper_id"],
+        question_number=row["question_number"],
+        parent_number=row["parent_number"],
+        parent_stem=_fallback_parent_stem(conn, row),
+        question_text=row["question_text"],
+        marks=row["marks"],
+        topic=row["topic"] or "unknown",
+        subtopic=row["subtopic"],
+        difficulty=row["difficulty"],
+        has_diagram=bool(row["has_diagram"]),
+        diagram_description=row["diagram_description"],
+        correct_answer=row["correct_answer"],
+        marking_points=json.loads(row["marking_points"]) if row["marking_points"] else None,
+        common_errors=json.loads(row["common_errors"]) if row["common_errors"] else None,
+        subject_code=row["subject_code"],
+        year=row["year"],
+        session=row["session"],
+        paper_num=row["paper_num"],
+        variant=row["variant"],
+        source_page=_row_get(row, "source_page"),
+        parse_confidence=row["parse_confidence"],
+        verified=bool(row["verified"]),
+    )
+
+    tag_rows = conn.execute(
+        "SELECT tag FROM question_tags WHERE question_id = ?", (row["id"],)
+    ).fetchall()
+    item.tags = [r["tag"] for r in tag_rows]
+    return item
 
 
 # ---------------------------------------------------------------------------
@@ -122,15 +242,16 @@ def insert_question(conn: sqlite3.Connection, item: QuestionBankItem) -> int:
     """插入一道题目，返回 question_id"""
     cursor = conn.execute(
         """INSERT INTO questions
-           (paper_id, question_number, parent_number, question_text, marks,
+           (paper_id, question_number, parent_number, parent_stem, question_text, marks,
             topic, subtopic, difficulty, has_diagram, diagram_description,
             correct_answer, marking_points, common_errors,
             source_page, parse_confidence, verified)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             item.paper_id,
             item.question_number,
             item.parent_number,
+            item.parent_stem,
             item.question_text,
             item.marks,
             item.topic,
@@ -239,40 +360,7 @@ def get_random_questions(
         params + [count],
     ).fetchall()
 
-    questions = []
-    for row in rows:
-        item = QuestionBankItem(
-            id=row["id"],
-            paper_id=row["paper_id"],
-            question_number=row["question_number"],
-            parent_number=row["parent_number"],
-            question_text=row["question_text"],
-            marks=row["marks"],
-            topic=row["topic"] or "unknown",
-            subtopic=row["subtopic"],
-            difficulty=row["difficulty"],
-            has_diagram=bool(row["has_diagram"]),
-            diagram_description=row["diagram_description"],
-            correct_answer=row["correct_answer"],
-            marking_points=json.loads(row["marking_points"]) if row["marking_points"] else None,
-            common_errors=json.loads(row["common_errors"]) if row["common_errors"] else None,
-            subject_code=row["subject_code"],
-            year=row["year"],
-            session=row["session"],
-            paper_num=row["paper_num"],
-            variant=row["variant"],
-            source_page=row["source_page"],
-            parse_confidence=row["parse_confidence"],
-            verified=bool(row["verified"]),
-        )
-
-        # 加载标签
-        tag_rows = conn.execute(
-            "SELECT tag FROM question_tags WHERE question_id = ?", (row["id"],)
-        ).fetchall()
-        item.tags = [r["tag"] for r in tag_rows]
-
-        questions.append(item)
+    questions = [_question_item_from_row(conn, row) for row in rows]
 
     return questions, total
 
@@ -290,35 +378,7 @@ def get_question_by_id(conn: sqlite3.Connection, question_id: int) -> QuestionBa
     if not row:
         return None
 
-    item = QuestionBankItem(
-        id=row["id"],
-        paper_id=row["paper_id"],
-        question_number=row["question_number"],
-        parent_number=row["parent_number"],
-        question_text=row["question_text"],
-        marks=row["marks"],
-        topic=row["topic"] or "unknown",
-        subtopic=row["subtopic"],
-        difficulty=row["difficulty"],
-        has_diagram=bool(row["has_diagram"]),
-        correct_answer=row["correct_answer"],
-        marking_points=json.loads(row["marking_points"]) if row["marking_points"] else None,
-        common_errors=json.loads(row["common_errors"]) if row["common_errors"] else None,
-        subject_code=row["subject_code"],
-        year=row["year"],
-        session=row["session"],
-        paper_num=row["paper_num"],
-        variant=row["variant"],
-        parse_confidence=row["parse_confidence"],
-        verified=bool(row["verified"]),
-    )
-
-    tag_rows = conn.execute(
-        "SELECT tag FROM question_tags WHERE question_id = ?", (question_id,)
-    ).fetchall()
-    item.tags = [r["tag"] for r in tag_rows]
-
-    return item
+    return _question_item_from_row(conn, row)
 
 
 def get_all_topics(conn: sqlite3.Connection) -> list[TopicStats]:
