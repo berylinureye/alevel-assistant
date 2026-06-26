@@ -1,0 +1,524 @@
+{
+  "status": "success",
+  "generated_at": "2026-06-24 23:48:37",
+  "input_dir": "test",
+  "settings": {
+    "api_base": "http://localhost:8000",
+    "repeat": 1,
+    "max_concurrency": 1,
+    "tracked_events": true
+  },
+  "asset_summary": {
+    "count": 17,
+    "by_kind": {
+      "pdf": 4,
+      "image": 13
+    },
+    "assets": [
+      {
+        "path": "test/9709_s22_qp_11.pdf",
+        "kind": "pdf",
+        "size_bytes": 97094
+      },
+      {
+        "path": "test/9709_s22_qp_41.pdf",
+        "kind": "pdf",
+        "size_bytes": 91803
+      },
+      {
+        "path": "test/9709_s22_qp_51.pdf",
+        "kind": "pdf",
+        "size_bytes": 84553
+      },
+      {
+        "path": "test/IMG_9158.HEIC",
+        "kind": "image",
+        "size_bytes": 1793979
+      },
+      {
+        "path": "test/IMG_9160.HEIC",
+        "kind": "image",
+        "size_bytes": 1546377
+      },
+      {
+        "path": "test/IMG_9161.HEIC",
+        "kind": "image",
+        "size_bytes": 1826178
+      },
+      {
+        "path": "test/IMG_9702.HEIC",
+        "kind": "image",
+        "size_bytes": 1676318
+      },
+      {
+        "path": "test/IMG_9711.HEIC",
+        "kind": "image",
+        "size_bytes": 1789340
+      },
+      {
+        "path": "test/IMG_9712.HEIC",
+        "kind": "image",
+        "size_bytes": 1904873
+      },
+      {
+        "path": "test/IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "test/IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+        "kind": "image",
+        "size_bytes": 2120642
+      },
+      {
+        "path": "test/IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+        "kind": "image",
+        "size_bytes": 2125701
+      },
+      {
+        "path": "test/IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+        "kind": "image",
+        "size_bytes": 2020136
+      },
+      {
+        "path": "test/Lesson2-Coordinate geometry 11.pdf",
+        "kind": "pdf",
+        "size_bytes": 4381401
+      },
+      {
+        "path": "test/微信图片_20260407164318_22_1047.jpg",
+        "kind": "image",
+        "size_bytes": 5336858
+      },
+      {
+        "path": "test/微信图片_20260407170127_45_4.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "test/微信图片_20260407170227_46_4.jpg",
+        "kind": "image",
+        "size_bytes": 171885
+      }
+    ]
+  },
+  "effectiveness": {
+    "overall_score": 0,
+    "overall_status": "fail",
+    "metrics": {
+      "upload_success_rate": {
+        "label": "上传成功率",
+        "value": 0.0,
+        "target": 0.95,
+        "status": "fail",
+        "sample_size": 17,
+        "unit": "rate",
+        "weight": 3
+      },
+      "parse_success_rate": {
+        "label": "可解析率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 3
+      },
+      "image_end_to_end_p95_ms": {
+        "label": "图片端到端 P95",
+        "value": null,
+        "target": 60000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1
+      },
+      "pdf_end_to_end_p95_ms": {
+        "label": "PDF 端到端 P95",
+        "value": null,
+        "target": 90000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1
+      },
+      "first_question_p95_ms": {
+        "label": "首题返回 P95",
+        "value": null,
+        "target": 30000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1
+      },
+      "marked_correctness_match_rate": {
+        "label": "标注正确性一致率",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2
+      },
+      "marked_score_match_rate": {
+        "label": "标注精确分数一致率",
+        "value": null,
+        "target": 0.85,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2
+      },
+      "recommendation_relevance_rate": {
+        "label": "标注推荐相关性",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2
+      },
+      "recommendation_real_hit_rate": {
+        "label": "推荐真实题库命中率",
+        "value": null,
+        "target": 1.0,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2
+      },
+      "paper_compliance_rate": {
+        "label": "Paper 合规率",
+        "value": null,
+        "target": 1.0,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2
+      },
+      "repeat_question_count_stability": {
+        "label": "重复运行题目数稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1
+      },
+      "repeat_recommendation_mode_stability": {
+        "label": "重复运行推荐模式稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1
+      }
+    },
+    "failures": [
+      {
+        "metric": "upload_success_rate",
+        "label": "上传成功率",
+        "value": 0.0,
+        "target": 0.95
+      }
+    ],
+    "summary": {
+      "records": 17,
+      "successful_records": 0,
+      "parsed_records": 0,
+      "asset_count": 17
+    }
+  },
+  "records": [
+    {
+      "asset_path": "test/IMG_9158.HEIC",
+      "filename": "IMG_9158.HEIC",
+      "kind": "image",
+      "size_bytes": 1793979,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5144,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/9709_s22_qp_11.pdf",
+      "filename": "9709_s22_qp_11.pdf",
+      "kind": "pdf",
+      "size_bytes": 97094,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5052,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "Server error '503 Service Unavailable' for url 'http://localhost:8000/large-pdf/prepare'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/IMG_9711.HEIC",
+      "filename": "IMG_9711.HEIC",
+      "kind": "image",
+      "size_bytes": 1789340,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5182,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+      "filename": "IMG_BED71913-F089-4A0F-8813-33FC50873BF3.JPEG",
+      "kind": "image",
+      "size_bytes": 2120642,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5278,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/微信图片_20260407164318_22_1047.jpg",
+      "filename": "微信图片_20260407164318_22_1047.jpg",
+      "kind": "image",
+      "size_bytes": 5336858,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5070,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/IMG_9702.HEIC",
+      "filename": "IMG_9702.HEIC",
+      "kind": "image",
+      "size_bytes": 1676318,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5054,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+      "filename": "IMG_B1005BE1-7A67-4E7D-A56C-7B24AA0D0171.JPEG",
+      "kind": "image",
+      "size_bytes": 2141430,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5120,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/Lesson2-Coordinate geometry 11.pdf",
+      "filename": "Lesson2-Coordinate geometry 11.pdf",
+      "kind": "pdf",
+      "size_bytes": 4381401,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5073,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/IMG_9160.HEIC",
+      "filename": "IMG_9160.HEIC",
+      "kind": "image",
+      "size_bytes": 1546377,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5118,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/IMG_9712.HEIC",
+      "filename": "IMG_9712.HEIC",
+      "kind": "image",
+      "size_bytes": 1904873,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5193,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+      "filename": "IMG_D49734AE-67A1-42A9-B5FB-73810AA97748.JPEG",
+      "kind": "image",
+      "size_bytes": 2125701,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5112,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/微信图片_20260407170127_45_4.jpg",
+      "filename": "微信图片_20260407170127_45_4.jpg",
+      "kind": "image",
+      "size_bytes": 138172,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5066,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "Server error '503 Service Unavailable' for url 'http://localhost:8000/analyze-homework-stream'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/9709_s22_qp_51.pdf",
+      "filename": "9709_s22_qp_51.pdf",
+      "kind": "pdf",
+      "size_bytes": 84553,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5074,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "Server error '503 Service Unavailable' for url 'http://localhost:8000/large-pdf/prepare'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/IMG_9161.HEIC",
+      "filename": "IMG_9161.HEIC",
+      "kind": "image",
+      "size_bytes": 1826178,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5076,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+      "filename": "IMG_FFDCA86C-D851-4C2A-B40C-38749536F898.JPEG",
+      "kind": "image",
+      "size_bytes": 2020136,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5065,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/微信图片_20260407170227_46_4.jpg",
+      "filename": "微信图片_20260407170227_46_4.jpg",
+      "kind": "image",
+      "size_bytes": 171885,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5045,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "Server error '503 Service Unavailable' for url 'http://localhost:8000/analyze-homework-stream'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    },
+    {
+      "asset_path": "test/9709_s22_qp_41.pdf",
+      "filename": "9709_s22_qp_41.pdf",
+      "kind": "pdf",
+      "size_bytes": 91803,
+      "repeat_index": 1,
+      "status": "error",
+      "elapsed_ms": 5063,
+      "first_question_ms": null,
+      "question_count": 0,
+      "questions": [],
+      "error": "Server error '503 Service Unavailable' for url 'http://localhost:8000/large-pdf/prepare'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503",
+      "recommendation": {
+        "mode": "none",
+        "recommendations": []
+      }
+    }
+  ]
+}

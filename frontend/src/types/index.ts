@@ -92,6 +92,38 @@ export type UploadIntent =
   | 'partial_past_paper_pages'
   | 'answer_pages_only'
 
+export type LargePdfMatchConfidence = 'high' | 'medium' | 'low' | null
+
+export interface LargePdfPreviewPage {
+  page: number
+  thumbnail_b64: string
+  width: number
+  height: number
+  ocr_hint: string
+  selected_by_default?: boolean
+}
+
+export interface LargePdfPaperResolution {
+  upload_intent?: UploadIntent
+  paper_code?: string | null
+  question_numbers?: string[]
+  paper_id?: string | null
+  paper_label?: string | null
+  match_confidence?: LargePdfMatchConfidence
+  match_source?: 'cover' | 'page_header' | 'question_text' | 'manual' | 'none' | string | null
+  grading_route?: 'past_paper_mark_scheme' | 'open_ai_grading' | string | null
+  needs_user_confirmation?: boolean
+}
+
+export interface LargePdfPrepareResponse {
+  status: 'ready' | string
+  pdf_id: string
+  filename: string
+  page_count: number
+  preview_pages: LargePdfPreviewPage[]
+  paper_resolution: LargePdfPaperResolution
+}
+
 export interface ApiError {
   status: string
   error_code: string
@@ -110,6 +142,8 @@ export interface AnalyzeRequest {
   paper_code?: string
   /** 可选：优先批改的题号，例如 3, 4(a), 7 */
   question_numbers?: string
+  /** 快速批量模式：限制长尾识别/判分等待，优先快速返回可复核结果 */
+  fast_batch?: boolean
 }
 
 export interface ExplainQuestionRequest {

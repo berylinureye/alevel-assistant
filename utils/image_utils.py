@@ -4,12 +4,17 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import os
 from PIL import Image, ImageOps
 
 _log = logging.getLogger(__name__)
 
 MAX_DIMENSION = 2048
 JPEG_QUALITY = 85
+
+
+def _env_flag(name: str, default: str = "0") -> bool:
+    return os.environ.get(name, default).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _register_optional_image_openers() -> None:
@@ -42,9 +47,12 @@ def try_auto_orient_via_osd(image: Image.Image) -> Image.Image:
     使用 tesseract OSD（若已安装）做一次本地朝向检测并旋转。
     不依赖网络、不增加 AI 调用。tesseract 未装时静默返回原图。
     """
+    if not _env_flag("IMAGE_OSD_ENABLED"):
+        return image
     try:
         import pytesseract
-        osd = pytesseract.image_to_osd(image)
+        timeout = float(os.environ.get("IMAGE_OSD_TIMEOUT_SECONDS", "1.5"))
+        osd = pytesseract.image_to_osd(image, timeout=max(0.1, timeout))
         import re
         m = re.search(r"Rotate:\s*(\d+)", osd)
         if m:

@@ -6,12 +6,17 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import io
 import json
 import logging
+import os
 import queue as stdlib_queue
+import re
+import sqlite3
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from pathlib import Path
 
 _log = logging.getLogger("api.routes")
@@ -23,14 +28,20 @@ from PIL import Image, ImageDraw
 
 from utils.image_utils import _register_optional_image_openers, load_image
 
-from api import upload_cache
+from api import large_pdf_cache, upload_cache
 from api.feedback import log_ai_event
 from api.paper_resolver import (
     build_resolution_steps,
     build_user_hint_with_resolution,
     resolve_paper_context,
 )
-from api.large_pdf import prepare_large_pdf
+from api.large_pdf import (
+    LARGE_PDF_RECOGNITION_TIMEOUT_SECONDS,
+    build_large_pdf_user_hint,
+    parse_selected_pages,
+    prepare_large_pdf,
+    render_pdf_pages_to_temp_files,
+)
 import time as _time
 from pipeline.segmenter import segment_and_extract
 from api.schemas import (
@@ -70,11 +81,14 @@ MAX_FILE_BYTES  = 20 * 1024 * 1024          # 20 MB per uploaded image
 # Max pages per /analyze-homework{,-stream} request. Must be kept in sync with
 # MAX_FILES in frontend/src/components/UploadForm.tsx — the frontend enforces
 # this before upload, the server enforces it as a hard guard.
-MAX_PAGES_PER_REQUEST = 16
+MAX_PAGES_PER_REQUEST = 24
 ALLOWED_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "HEIC", "HEIF"}
 _pipeline_semaphore = asyncio.Semaphore(2)  # max 2 concurrent pipeline executions
-_prepare_semaphore = asyncio.Semaphore(4)   # upload-time extraction is lighter than full pipeline
+_prepare_semaphore = asyncio.Semaphore(10)  # upload-time extraction is lighter than full pipeline
+PREPARE_UPLOAD_TIMEOUT_SECONDS = float(os.environ.get("PREPARE_UPLOAD_TIMEOUT_SECONDS", "120"))
+FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS = float(os.environ.get("FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS", "120"))
+RECOGNITION_TIMEOUT_SECONDS = float(os.environ.get("RECOGNITION_TIMEOUT_SECONDS", "90"))
 
 _register_optional_image_openers()
 
@@ -192,6 +206,8 @@ def _flatten_question(q: dict, feedback_mode: FeedbackMode) -> QuestionResponse:
         grading_route      = q.get("grading_route"),
         mark_scheme_confidence = q.get("mark_scheme_confidence"),
         mark_scheme_context_error = q.get("mark_scheme_context_error"),
+        questionbank_question_id = q.get("questionbank_question_id"),
+        questionbank_match_confidence = q.get("questionbank_match_confidence"),
         student_feedback   = student_fb,
         teacher_feedback   = teacher_fb,
         routing_info       = routing_info,
@@ -230,6 +246,170 @@ def _fallback_page_summary(questions: list[QuestionResponse]) -> PageSummaryResp
         estimated_review_minutes=0,
         priority_topics=[],
     )
+
+
+def _resolution_event_meta(paper_resolution) -> dict:
+    detail = paper_resolution.event_detail()
+    return {
+        **detail,
+        "route": detail.get("grading_route"),
+        "confidence": detail.get("match_confidence"),
+        "match_source": detail.get("match_source"),
+        "needs_confirmation": bool(detail.get("needs_user_confirmation")),
+    }
+
+
+def _segment_telemetry_meta(payload: dict) -> dict:
+    questions = payload.get("questions", []) if isinstance(payload, dict) else []
+    if not isinstance(questions, list):
+        questions = []
+    empty_count = 0
+    parent_missing_count = 0
+    for q in questions:
+        if not isinstance(q, dict):
+            continue
+        answer = str(q.get("student_answer") or "").strip()
+        steps = q.get("working_steps") or []
+        if not answer and not steps:
+            empty_count += 1
+        qn = str(q.get("question_number") or "")
+        if re.search(r"\([a-z]\)|\b[a-z]\b", qn, flags=re.I) and not str(q.get("parent_stem") or "").strip():
+            parent_missing_count += 1
+    return {
+        "question_count": len(questions),
+        "questions": len(questions),
+        "empty_count": empty_count,
+        "parent_stem_missing_count": parent_missing_count,
+    }
+
+
+def _question_telemetry_meta(q: dict) -> dict:
+    grading = q.get("grading") or q.get("grade_result") or {}
+    is_unanswered = bool(q.get("is_unanswered") or q.get("unanswered") or grading.get("unanswered") or grading.get("is_unanswered"))
+    return {
+        "question_number": q.get("question_number"),
+        "is_correct": grading.get("is_correct"),
+        "score": grading.get("score"),
+        "full_score": grading.get("full_score"),
+        "error_type": grading.get("error_type"),
+        "question_type": q.get("question_type"),
+        "needs_review": bool(grading.get("needs_review") or q.get("needs_review")),
+        "grading_confidence": grading.get("grading_confidence"),
+        "grading_route": q.get("grading_route"),
+        "mark_scheme_confidence": q.get("mark_scheme_confidence"),
+        "questionbank_question_id": q.get("questionbank_question_id"),
+        "questionbank_match_confidence": q.get("questionbank_match_confidence"),
+        "escalated": bool(q.get("escalated") or grading.get("escalated") or grading.get("escalation_reasons")),
+        "model": grading.get("used_model") or ((q.get("routing_info") or {}).get("model")),
+        "verifier_adjusted": bool(
+            grading.get("verifier_adjusted")
+            or grading.get("sympy_adjusted")
+            or grading.get("statistics_adjusted")
+            or grading.get("probability_adjusted")
+            or grading.get("detail_deductions")
+        ),
+        "is_unanswered": is_unanswered,
+    }
+
+
+def _digital_past_paper_extracted(
+    *,
+    session: dict,
+    selected_pages: list[int],
+    paper_context: dict,
+) -> list[dict] | None:
+    """Use local question-bank text for embedded-text past-paper PDFs.
+
+    This is intentionally narrow: only high-confidence matched past papers with
+    embedded PDF text are converted this way. It avoids sending a whole printed
+    question paper as an 18-page vision request, while still treating the upload
+    honestly as unanswered student work.
+    """
+    if paper_context.get("grading_route") != "past_paper_mark_scheme":
+        return None
+    if paper_context.get("match_confidence") != "high":
+        return None
+    catalog = paper_context.get("catalog_match") or {}
+    if not catalog:
+        return None
+
+    preview_pages = session.get("preview_pages") or []
+    selected = set(selected_pages)
+    embedded_text_chars = sum(
+        len(str(page.get("ocr_hint") or ""))
+        for page in preview_pages
+        if int(page.get("page") or 0) in selected
+    )
+    if embedded_text_chars < 200:
+        return None
+
+    try:
+        subject = str(catalog.get("subject") or "").strip()
+        year = int(catalog.get("year"))
+        session_code = str(catalog.get("session") or "").strip()
+        paper_num = int(catalog.get("paper_num"))
+        variant = int(catalog.get("variant"))
+    except Exception:
+        return None
+
+    try:
+        conn = sqlite3.connect("data/questions.db")
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """SELECT q.*
+               FROM questions q
+               JOIN papers p ON q.paper_id = p.id
+               WHERE p.subject_code = ?
+                 AND p.year = ?
+                 AND p.session = ?
+                 AND p.paper_num = ?
+                 AND p.variant = ?
+               ORDER BY q.source_page, q.question_number""",
+            (subject, year, session_code, paper_num, variant),
+        ).fetchall()
+    except Exception as exc:
+        _log.warning("digital past paper question-bank fallback failed: %s", exc)
+        return None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    extracted: list[dict] = []
+    for row in rows:
+        try:
+            source_page = int(row["source_page"] or 0)
+        except Exception:
+            source_page = 0
+        if source_page and source_page not in selected:
+            continue
+        question_number = str(row["question_number"] or "").strip()
+        question_text = str(row["question_text"] or "").strip()
+        if not question_number or not question_text:
+            continue
+        extracted.append(
+            {
+                "question_number": question_number,
+                "bbox": [0, 0, 1, 1],
+                "question_text": question_text,
+                "parent_stem": "",
+                "student_answer": "",
+                "working_steps": [],
+                "marks": int(row["marks"] or 0),
+                "image_quality": "digital_pdf",
+                "confidence": float(row["parse_confidence"] or 0.95),
+                "page": source_page or min(selected_pages or [1]),
+                "grading_route": "past_paper_mark_scheme",
+                "mark_scheme_confidence": "high",
+                "questionbank_question_id": int(row["id"]),
+                "questionbank_match_confidence": "high",
+                "knowledge_tags": [str(row["topic"] or ""), str(row["subtopic"] or "")],
+                "digital_past_paper_fallback": True,
+            }
+        )
+
+    return extracted or None
 
 # ---------------------------------------------------------------------------
 # Debug artifacts（失败只降级，不影响主响应）
@@ -297,9 +477,40 @@ def _do_prepare_extract(path: str, user_hint: str, registry) -> dict:
     img = load_image(path)
     vision_client = registry.get(ModelRole.vision) or registry[ModelRole.base]
     ocr_client = registry.get(ModelRole.ocr)
-    extracted = segment_and_extract(
-        [img], vision_client, user_hint=user_hint, ocr_client=ocr_client,
-    )
+
+    def _run_segment() -> list[dict]:
+        return segment_and_extract(
+            [img], vision_client, user_hint=user_hint, ocr_client=ocr_client,
+        )
+
+    if PREPARE_UPLOAD_TIMEOUT_SECONDS > 0:
+        pool = ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(_run_segment)
+        try:
+            extracted = future.result(timeout=PREPARE_UPLOAD_TIMEOUT_SECONDS)
+        except FutureTimeoutError:
+            _log.warning("prepare-upload recognition timed out after %.1fs", PREPARE_UPLOAD_TIMEOUT_SECONDS)
+            future.cancel()
+            width, height = getattr(img, "size", (1, 1))
+            extracted = [
+                {
+                    "question_number": "本次上传",
+                    "bbox": [0, 0, int(width), int(height)],
+                    "question_text": "",
+                    "parent_stem": "",
+                    "student_answer": "",
+                    "working_steps": [],
+                    "marks": 0,
+                    "image_quality": "poor",
+                    "confidence": 0.0,
+                    "page": 1,
+                    "recognition_timeout": True,
+                }
+            ]
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
+    else:
+        extracted = _run_segment()
     # Probe page header (same OCR pass used by group_pages_by_continuity)
     # so that _resolve_prepared can later decide whether this uploaded image
     # is a fresh-question page or a pure answer-continuation page. Single-
@@ -325,15 +536,59 @@ async def prepare_upload(
     image: UploadFile = File(..., description="Single image to pre-extract at upload time"),
     user_hint: str = Form("", description="Optional hint for question location"),
 ) -> dict:
+    _t_prepare = _time.perf_counter()
     data = await _validate_image(image)
+    user_hint_clean = user_hint.strip()
+    content_hash = hashlib.sha256(data).hexdigest()
+    claim_status, claim_value = upload_cache.claim_prepared_template(content_hash, user_hint_clean)
+    if claim_status == "wait" and isinstance(claim_value, threading.Event):
+        await asyncio.to_thread(claim_value.wait, max(1.0, PREPARE_UPLOAD_TIMEOUT_SECONDS + 5.0))
+        cached_probe = upload_cache.get_prepared_template(content_hash, user_hint_clean)
+    elif claim_status == "hit" and isinstance(claim_value, dict):
+        cached_probe = claim_value
+    else:
+        cached_probe = None
+
+    if cached_probe is not None:
+        extracted = cached_probe["extracted"]
+        upload_id = upload_cache.store(
+            extracted,
+            user_hint=user_hint_clean,
+            starts_with_qnum=cached_probe.get("starts_with_qnum"),
+        )
+        timed_out = any(bool(item.get("recognition_timeout")) for item in extracted if isinstance(item, dict))
+        log_ai_event("prepare_upload_done", int((_time.perf_counter() - _t_prepare) * 1000), {
+            "status": "ready",
+            "ocr_status": "timeout" if timed_out else "ready",
+            "detected_header": cached_probe.get("starts_with_qnum"),
+            "upload_id": upload_id,
+            "question_count": len(extracted),
+            "filename_ext": Path(image.filename or "").suffix.lower(),
+            "cache_hit": True,
+        })
+        return {
+            "status": "ready",
+            "upload_id": upload_id,
+            "question_count": len(extracted),
+            "cache_hit": True,
+        }
+
     tmp = _write_tempfile(data, image.filename or "upload.jpg")
     registry = _get_registry(request)
     try:
         async with _prepare_semaphore:
             probe = await run_in_threadpool(
-                _do_prepare_extract, str(tmp), user_hint.strip(), registry,
+                _do_prepare_extract, str(tmp), user_hint_clean, registry,
             )
     except Exception as exc:
+        if claim_status == "owner":
+            upload_cache.release_prepared_template_claim(content_hash, user_hint_clean)
+        log_ai_event("prepare_upload_done", int((_time.perf_counter() - _t_prepare) * 1000), {
+            "status": "error",
+            "ocr_status": "error",
+            "message": str(exc)[:300],
+            "filename_ext": Path(image.filename or "").suffix.lower(),
+        })
         raise HTTPException(
             status_code=500,
             detail={"error_code": "PREPARE_ERROR", "message": str(exc)},
@@ -344,13 +599,33 @@ async def prepare_upload(
     extracted = probe["extracted"]
     upload_id = upload_cache.store(
         extracted,
-        user_hint=user_hint.strip(),
+        user_hint=user_hint_clean,
         starts_with_qnum=probe.get("starts_with_qnum"),
     )
+    timed_out = any(bool(item.get("recognition_timeout")) for item in extracted if isinstance(item, dict))
+    if not timed_out:
+        upload_cache.store_prepared_template(
+            content_hash,
+            extracted,
+            user_hint=user_hint_clean,
+            starts_with_qnum=probe.get("starts_with_qnum"),
+        )
+    if claim_status == "owner":
+        upload_cache.release_prepared_template_claim(content_hash, user_hint_clean)
+    log_ai_event("prepare_upload_done", int((_time.perf_counter() - _t_prepare) * 1000), {
+        "status": "ready",
+        "ocr_status": "timeout" if timed_out else "ready",
+        "detected_header": probe.get("starts_with_qnum"),
+        "upload_id": upload_id,
+        "question_count": len(extracted),
+        "filename_ext": Path(image.filename or "").suffix.lower(),
+        "cache_hit": False,
+    })
     return {
         "status": "ready",
         "upload_id": upload_id,
         "question_count": len(extracted),
+        "cache_hit": False,
     }
 
 
@@ -361,6 +636,7 @@ async def prepare_large_pdf_upload(
     paper_code: str = Form(""),
     question_numbers: str = Form(""),
 ) -> dict:
+    _t_prepare = _time.perf_counter()
     data = await pdf.read()
     if not data:
         raise HTTPException(
@@ -370,7 +646,7 @@ async def prepare_large_pdf_upload(
 
     tmp = _write_tempfile(data, pdf.filename or "upload.pdf")
     try:
-        return prepare_large_pdf(
+        prepared = prepare_large_pdf(
             tmp,
             filename=pdf.filename or "upload.pdf",
             upload_intent=upload_intent,
@@ -378,9 +654,226 @@ async def prepare_large_pdf_upload(
             question_numbers=question_numbers,
             delete_on_remove=True,
         )
+        preview_pages = prepared.get("preview_pages") or []
+        paper_resolution = prepared.get("paper_resolution") or {}
+        log_ai_event("large_pdf_prepare_done", int((_time.perf_counter() - _t_prepare) * 1000), {
+            "status": prepared.get("status"),
+            "page_count": prepared.get("page_count"),
+            "preview_count": len(preview_pages),
+            "default_selected_count": sum(1 for p in preview_pages if p.get("selected_by_default")),
+            "upload_intent": upload_intent,
+            "match_confidence": paper_resolution.get("match_confidence"),
+            "match_source": paper_resolution.get("match_source"),
+            "grading_route": paper_resolution.get("grading_route"),
+            "needs_confirmation": bool(paper_resolution.get("needs_user_confirmation")),
+            "has_paper_code": bool(paper_code.strip()),
+        })
+        return prepared
     except Exception:
+        log_ai_event("large_pdf_prepare_done", int((_time.perf_counter() - _t_prepare) * 1000), {
+            "status": "error",
+            "upload_intent": upload_intent,
+            "has_paper_code": bool(paper_code.strip()),
+        })
         tmp.unlink(missing_ok=True)
         raise
+
+
+@router.post(
+    "/large-pdf/{pdf_id}/analyze-stream",
+    tags=["large-pdf"],
+    responses={
+        400: {"description": "NO_PAGES_SELECTED / TOO_MANY_PAGES_SELECTED / INVALID_PAGE_SELECTION"},
+        404: {"description": "Large PDF session expired or not found"},
+        200: {"description": "text/event-stream (SSE): segmentation | question | summary | done | error"},
+    },
+)
+async def analyze_large_pdf_stream(
+    request: Request,
+    pdf_id: str,
+    selected_pages: str = Form(..., description="Comma-separated or JSON-ish selected 1-based page numbers"),
+    feedback_mode: FeedbackMode = Form(FeedbackMode.both, description="student | teacher | both"),
+    review_mode: ReviewMode = Form(ReviewMode.auto, description="auto | force | off"),
+    user_hint: str = Form("", description="Optional hint for selected pages"),
+    upload_intent: str = Form("full_past_paper_pdf", description="full_past_paper_pdf | partial_past_paper_pages"),
+    paper_code: str = Form("", description="Optional CAIE paper code"),
+    question_numbers: str = Form("", description="Optional comma-separated question numbers to prioritise"),
+) -> StreamingResponse:
+    session = large_pdf_cache.get(pdf_id)
+    if not session:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "LARGE_PDF_SESSION_NOT_FOUND",
+                "message": "Large PDF session expired. Please upload the PDF again.",
+            },
+        )
+
+    pages = parse_selected_pages(
+        selected_pages,
+        page_count=int(session.get("page_count") or 0),
+        max_pages=MAX_PAGES_PER_REQUEST,
+    )
+    registry = _get_registry(request)
+    session_resolution = session.get("paper_resolution") or {}
+    effective_paper_code = paper_code.strip() or str(session_resolution.get("paper_code") or "")
+    effective_intent = upload_intent.strip() or str(
+        session_resolution.get("upload_intent") or "full_past_paper_pdf"
+    )
+    effective_question_numbers = question_numbers.strip() or ",".join(
+        str(q) for q in (session_resolution.get("question_numbers") or []) if q
+    )
+    paper_resolution = resolve_paper_context(
+        upload_intent=effective_intent,
+        paper_code=effective_paper_code,
+        question_numbers=effective_question_numbers,
+        page_count=len(pages),
+    )
+    log_ai_event("paper_resolution_done", 0, _resolution_event_meta(paper_resolution))
+    paper_pipeline_context = paper_resolution.pipeline_context()
+    prepared_extracted = _digital_past_paper_extracted(
+        session=session,
+        selected_pages=pages,
+        paper_context=paper_pipeline_context,
+    )
+    rendered_pages: list[Path] = []
+    if prepared_extracted is None:
+        rendered_pages = await run_in_threadpool(
+            render_pdf_pages_to_temp_files,
+            session["pdf_path"],
+            pages,
+        )
+    effective_user_hint = build_large_pdf_user_hint(
+        build_user_hint_with_resolution(user_hint, paper_resolution),
+        session,
+        pages,
+    )
+
+    log_ai_event("large_pdf_analysis_requested", 0, {
+        "pdf_id": pdf_id,
+        "selected_pages": pages,
+        "page_count": session.get("page_count"),
+        "review_mode": review_mode.value,
+        "paper_resolution": paper_resolution.event_detail(),
+        "mineru_status": (session.get("document_parse") or {}).get("status"),
+        "digital_past_paper_fallback": bool(prepared_extracted),
+    })
+
+    async def event_generator():
+        document_parse = session.get("document_parse") or {}
+        if document_parse:
+            yield (
+                "event: agent_step\ndata: "
+                + json.dumps(
+                    {
+                        "question_number": "本次上传",
+                        "step_type": "observe",
+                        "title": "解析 Large PDF",
+                        "summary": (
+                            "MinerU 已生成 Markdown 上下文。"
+                            if document_parse.get("status") == "ready"
+                            else "MinerU 暂不可用，已回退到 PDF 页面图像分析。"
+                        ),
+                        "status": "completed",
+                        "agent_name": "MinerU",
+                        "tool": "MinerU Markdown",
+                        "confidence": "high" if document_parse.get("status") == "ready" else "low",
+                        "user_visible": True,
+                        "severity": "success" if document_parse.get("status") == "ready" else "info",
+                        "detail": {
+                            "engine": document_parse.get("engine"),
+                            "status": document_parse.get("status"),
+                            "question_count": document_parse.get("question_count"),
+                            "selected_pages": pages,
+                        },
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            )
+
+        for step in build_resolution_steps(paper_resolution):
+            yield (
+                "event: agent_step\ndata: "
+                f"{json.dumps(step, ensure_ascii=False)}\n\n"
+            )
+
+        q: stdlib_queue.Queue[
+            tuple[str, dict] | None
+        ] = stdlib_queue.Queue()
+
+        def _run_pipeline() -> None:
+            try:
+                for event_type, data in run_pipeline_streaming(
+                    [str(t) for t in rendered_pages],
+                    True,
+                    review_mode.value,
+                    effective_user_hint,
+                    feedback_mode.value,
+                    registry=registry,
+                    prepared_extracted=prepared_extracted,
+                    paper_context=paper_pipeline_context,
+                    recognition_timeout_seconds=LARGE_PDF_RECOGNITION_TIMEOUT_SECONDS,
+                ):
+                    q.put((event_type, data))
+            except Exception:
+                _log.exception("Large PDF streaming analysis failed")
+                q.put(("error", {"message": "Large PDF analysis failed. Please try again."}))
+            finally:
+                q.put(None)
+                for t in rendered_pages:
+                    t.unlink(missing_ok=True)
+
+        threading.Thread(target=_run_pipeline, daemon=True).start()
+
+        question_count = 0
+        _t_large_session = _time.perf_counter()
+        try:
+            while True:
+                item = await asyncio.to_thread(q.get)
+                if item is None:
+                    break
+                event_type, data = item
+                try:
+                    if event_type == "question":
+                        question_count += 1
+                        meta = _question_telemetry_meta(data or {})
+                        if meta["is_unanswered"]:
+                            log_ai_event("question_unanswered", 0, {
+                                "question_type": (data or {}).get("question_type"),
+                                "question_number": (data or {}).get("question_number"),
+                                "large_pdf": True,
+                            })
+                        else:
+                            meta["large_pdf"] = True
+                            log_ai_event("question_graded", 0, meta)
+                    elif event_type == "segmentation":
+                        meta = _segment_telemetry_meta(data or {})
+                        meta["large_pdf"] = True
+                        log_ai_event("segment_done", 0, meta)
+                    elif event_type == "error":
+                        log_ai_event("pipeline_error", int((_time.perf_counter() - _t_large_session) * 1000), {
+                            "message": str((data or {}).get("message", ""))[:500],
+                            "large_pdf": True,
+                        })
+                except Exception as _texc:
+                    _log.warning("large pdf telemetry emit failed: %s", _texc)
+                yield (
+                    f"event: {event_type}\n"
+                    f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                )
+            log_ai_event("session_done", int((_time.perf_counter() - _t_large_session) * 1000), {
+                "questions": question_count,
+                "pages": len(pages),
+                "stream": True,
+                "large_pdf": True,
+            })
+        except asyncio.CancelledError:
+            for t in rendered_pages:
+                t.unlink(missing_ok=True)
+            raise
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 def _resolve_prepared(upload_ids_raw: str) -> list[dict] | None:
@@ -421,6 +914,12 @@ def _resolve_prepared(upload_ids_raw: str) -> list[dict] | None:
         starts_with_qnum = entry.get("starts_with_qnum")
         is_continuation = (idx > 0) and (starts_with_qnum is False)
         for item in entry["extracted"]:
+            if isinstance(item, dict) and item.get("recognition_timeout"):
+                _log.warning(
+                    "prepared upload %s timed out during pre-extraction; falling back to full analysis",
+                    uid,
+                )
+                return None
             item["page"] = global_page
             if is_continuation:
                 item["_continuation_page"] = True
@@ -500,6 +999,7 @@ async def analyze_homework(
         question_numbers=question_numbers,
         page_count=len(files),
     )
+    log_ai_event("paper_resolution_done", 0, _resolution_event_meta(paper_resolution))
     paper_pipeline_context = paper_resolution.pipeline_context()
     effective_user_hint = build_user_hint_with_resolution(user_hint, paper_resolution)
 
@@ -525,6 +1025,7 @@ async def analyze_homework(
                 registry,
                 prepared,
                 paper_pipeline_context,
+                RECOGNITION_TIMEOUT_SECONDS,
             )
     except Exception as exc:
         log_ai_event("pipeline_error", int((_time.perf_counter() - _t_session) * 1000), {
@@ -543,30 +1044,27 @@ async def analyze_homework(
         _flatten_question(q, feedback_mode)
         for q in raw.get("questions", [])
     ]
+    try:
+        log_ai_event("segment_done", 0, _segment_telemetry_meta({"questions": raw.get("questions", [])}))
+    except Exception as _exc:
+        _log.warning("segment telemetry emit failed: %s", _exc)
 
     # 批改事件：每题一条（便于计算正确率、错误类型分布）
     try:
         for q in raw.get("questions", []):
-            grade = q.get("grade_result") or {}
-            is_correct = grade.get("is_correct")
-            is_unanswered = bool(q.get("is_unanswered") or grade.get("is_unanswered"))
-            if is_unanswered:
+            meta = _question_telemetry_meta(q)
+            if meta["is_unanswered"]:
                 log_ai_event("question_unanswered", 0, {
                     "question_type": q.get("question_type"),
+                    "question_number": q.get("question_number"),
                 })
                 continue
-            log_ai_event("question_graded", 0, {
-                "is_correct": is_correct,
-                "score": grade.get("score"),
-                "error_type": grade.get("error_type"),
-                "question_type": q.get("question_type"),
-                "escalated": bool(q.get("escalated") or grade.get("escalated")),
-                "model": (q.get("routing_info") or {}).get("model"),
-            })
+            log_ai_event("question_graded", 0, meta)
             if q.get("solution_text"):
                 log_ai_event("solution_inline_done", 0, {
                     "question_type": q.get("question_type"),
-                    "is_correct": is_correct,
+                    "question_number": q.get("question_number"),
+                    "is_correct": meta.get("is_correct"),
                 })
         log_ai_event("session_done", int((_time.perf_counter() - _t_session) * 1000), {
             "questions": len(raw.get("questions", [])),
@@ -609,6 +1107,7 @@ async def analyze_homework_stream(
     image: list[UploadFile] = File(..., description="Homework page image(s), 1-5 files for multi-page (jpg/png/webp/heic/heif, ≤20 MB each)"),
     feedback_mode: FeedbackMode = Form(FeedbackMode.both, description="student | teacher | both"),
     review_mode: ReviewMode = Form(ReviewMode.auto, description="auto | force | off"),
+    fast_batch: bool = Form(False, description="Use single-model fast path for large batched uploads"),
     user_hint: str = Form("", description="Optional hint for locating questions/answers on the page"),
     upload_ids: str = Form("", description="Optional comma-separated upload_ids from /prepare-upload; skips re-extraction"),
     upload_intent: str = Form("unknown", description="unknown | past_paper | custom_homework | answer_pages_only"),
@@ -644,6 +1143,7 @@ async def analyze_homework_stream(
         question_numbers=question_numbers,
         page_count=len(files),
     )
+    log_ai_event("paper_resolution_done", 0, _resolution_event_meta(paper_resolution))
     paper_pipeline_context = paper_resolution.pipeline_context()
     effective_user_hint = build_user_hint_with_resolution(user_hint, paper_resolution)
 
@@ -651,6 +1151,7 @@ async def analyze_homework_stream(
         "pages": len(files),
         "total_bytes": total_bytes,
         "review_mode": review_mode.value,
+        "fast_batch": fast_batch,
         "has_hint": bool(user_hint.strip()),
         "prepared": bool(prepared),
         "stream": True,
@@ -681,6 +1182,8 @@ async def analyze_homework_stream(
                     registry=registry,
                     prepared_extracted=prepared,
                     paper_context=paper_pipeline_context,
+                    recognition_timeout_seconds=FAST_BATCH_RECOGNITION_TIMEOUT_SECONDS if fast_batch else None,
+                    fast_batch=fast_batch,
                 ):
                     q.put((event_type, data))
             except Exception as exc:
@@ -703,29 +1206,22 @@ async def analyze_homework_stream(
                 try:
                     if event_type == "question":
                         nonlocal_qc["n"] += 1
-                        grade = (data or {}).get("grade_result") or {}
-                        if (data or {}).get("is_unanswered") or grade.get("is_unanswered"):
+                        meta = _question_telemetry_meta(data or {})
+                        if meta["is_unanswered"]:
                             log_ai_event("question_unanswered", 0, {
                                 "question_type": (data or {}).get("question_type"),
+                                "question_number": (data or {}).get("question_number"),
                             })
                         else:
-                            log_ai_event("question_graded", 0, {
-                                "is_correct": grade.get("is_correct"),
-                                "score": grade.get("score"),
-                                "error_type": grade.get("error_type"),
-                                "question_type": (data or {}).get("question_type"),
-                                "escalated": bool((data or {}).get("escalated") or grade.get("escalated")),
-                                "model": ((data or {}).get("routing_info") or {}).get("model"),
-                            })
+                            log_ai_event("question_graded", 0, meta)
                             if (data or {}).get("solution_text"):
                                 log_ai_event("solution_inline_done", 0, {
                                     "question_type": (data or {}).get("question_type"),
-                                    "is_correct": grade.get("is_correct"),
+                                    "question_number": (data or {}).get("question_number"),
+                                    "is_correct": meta.get("is_correct"),
                                 })
                     elif event_type == "segmentation":
-                        log_ai_event("segment_done", 0, {
-                            "questions": len((data or {}).get("questions", [])) if isinstance(data, dict) else 0,
-                        })
+                        log_ai_event("segment_done", 0, _segment_telemetry_meta(data or {}))
                     elif event_type == "error":
                         log_ai_event("pipeline_error", int((_time.perf_counter() - _t_session) * 1000), {
                             "message": str((data or {}).get("message", ""))[:500],

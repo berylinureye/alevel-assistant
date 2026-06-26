@@ -1,8 +1,8 @@
 # A-Level Assistant
 
-A-Level Assistant 是一个面向 Cambridge A-Level Mathematics 的 AI 学习诊断系统：学生上传作业或真题页后，系统先尽量匹配 Past Paper 和 Mark Scheme，再给出逐题批改、错因诊断和下一步练习建议。
+A-Level Assistant 是一个面向 Cambridge A-Level Mathematics 的 AI 学习诊断系统：学生上传作业图片或 PDF 后，系统会识别题目、匹配 Past Paper / Mark Scheme、逐题批改、解释错因，并推荐下一步练习。
 
-它不是一个“AI 炫技 dashboard”，也不是只给答案的聊天机器人。产品核心是：
+它不是一个通用聊天机器人，也不是只给答案的 demo。产品核心是：
 
 > 让学生知道自己错在哪里、为什么错、今晚下一步该练什么。
 
@@ -10,39 +10,63 @@ A-Level Assistant 是一个面向 Cambridge A-Level Mathematics 的 AI 学习诊
 
 当前 `main` 分支包含一个可运行的全栈 MVP：
 
-- 上传图片/PDF 页面并进行流式批改。
-- 识别 Past Paper 场景，优先走 Mark Scheme grounded grading。
-- 匹配不到真题时回退到开放 AI 批改。
-- 结果页展示学习诊断：得分、错因、薄弱知识点、复核风险。
-- 新增 Practice Orchestrator：批改后自动推荐、先询问推荐，或明确不推荐。
-- 学生可以在结果页内联完成推荐题，提交后得到评分结果和下一题动作。
-- 本地题库目前覆盖 CAIE 9709 结构化题目，适合 P1-P6 路线继续扩展。
+- 上传图片、多图、PDF 页面和 Large PDF，并支持选页处理。
+- `/prepare-upload` 提供 hash cache 与 in-flight dedupe，减少重复图片等待。
+- Past Paper resolver 优先匹配 CIE 真题和 Mark Scheme；高置信命中时走 grounded grading。
+- 匹配不到真题时回退到开放 AI 批改，并通过 confidence / needs_review 暴露风险。
+- Grader 支持 fast-first 流式返回：先给首题和已完成题，慢题进入短窗口等待，超时则返回可复核 placeholder。
+- SymPy、统计、概率、分数化简等 verifier 对 LLM 结果做确定性校准。
+- 结果页展示得分、错因、薄弱知识点、复核风险和下一步练习建议。
+- Practice Orchestrator 支持自动推荐、询问式推荐、内联答题和再次评分。
+- 埋点与 benchmark 围绕「上传 -> 识别 -> 匹配 -> 批改 -> 校验 -> 讲解 -> 练习 -> 反馈」全链路组织。
 
-## 产品路线
+## 核心架构
 
 ```mermaid
 flowchart TD
-    A["上传作业 / 真题页"] --> B["识别上传类型"]
-    B --> C{"能否匹配 Past Paper"}
-    C -->|"能"| D["找到 paper / question / mark scheme"]
-    C -->|"不能"| E["开放 AI 批改"]
-    D --> F["按评分规则批改"]
-    E --> F
-    F --> G["学习诊断"]
-    G --> H{"是否适合推荐练习"}
-    H -->|"真题或已确认"| I["自动推荐同主题题"]
-    H -->|"自定义题/不确定"| J["先询问学生"]
-    H -->|"题库不支持"| K["说明原因，不硬推荐"]
-    I --> L["学生作答"]
-    J --> L
-    L --> M["再次批改并调整下一题"]
+  U["Student uploads image / PDF"] --> F["React UploadForm"]
+  F --> P{"PDF or image?"}
+
+  P -->|"image / multi-image"| C["/prepare-upload<br/>hash cache + in-flight dedupe"]
+  C -->|"prepared upload_ids"| S["/analyze-homework-stream"]
+  P -->|"large PDF"| L["/large-pdf/prepare<br/>thumbnail + page selection"]
+  L --> S
+
+  S --> R{"fast-first mode?"}
+  R -->|"yes"| I["page-level recognition<br/>parallel where possible"]
+  R -->|"no / high-risk"| G["quality-first recognition"]
+
+  I --> O["Mathpix OCR evidence<br/>local fallback probe"]
+  G --> O
+  O --> Q{"OCR guard"}
+  Q -->|"task language"| H["OCR hint to segmenter"]
+  Q -->|"handwriting-only / weak"| A["audit evidence only"]
+  H --> X["structured questions"]
+  A --> X
+
+  X --> M["paper resolver + mark scheme context"]
+  M --> B["single-model first-pass grading"]
+  B --> T{"risk / confidence / verifier"}
+  T -->|"safe"| V["deterministic verifiers<br/>SymPy / statistics / probability / simplification"]
+  T -->|"needs review"| W["review / multi-agent path"]
+  W --> V
+
+  V --> E["SSE question events<br/>first usable result"]
+  E --> Y{"slow remaining questions?"}
+  Y -->|"within short window"| Z["complete summary"]
+  Y -->|"too slow"| N["needs_review timeout placeholder"]
+  N --> Z
+  Z --> K["practice recommendations<br/>feedback / track events"]
+  K --> UI["Result page + explanation + next practice"]
 ```
 
-更完整的产品思路见 [docs/PRODUCT.md](docs/PRODUCT.md)。
+当前主路径是 **fast-first but quality-aware**：图片上传默认尽快返回首题和已完成题；低置信、空白、跨页、慢题不会被伪装成确定结论，而是通过 `needs_review`、timeout placeholder 和 verifier 暴露风险。
 
-## 快速人工测试
+更完整的后端路径、阶段指标和 benchmark 结论见 [Runtime Pipeline And Benchmarks](docs/runtime-pipeline-and-benchmarks.md)。模型角色、环境变量和 OCR 链路见 [Model Routing And OCR Chain](docs/model-routing-and-ocr-chain.md)。
 
-启动后端：
+## 本地运行
+
+后端：
 
 ```bash
 cp .env.example .env
@@ -50,7 +74,7 @@ pip install -r requirements.txt
 python server.py
 ```
 
-启动前端：
+前端：
 
 ```bash
 cd frontend
@@ -77,54 +101,57 @@ http://127.0.0.1:3000/__practice-recommendations-replay
 3. 再点 `开始练习`。
 4. 输入答案：`x = 3 or x = -1/2`。
 5. 点 `提交答案`。
-6. 看到 `4/4`、参考答案、评分标准和 `调整下一题`。
+6. 看到评分、参考答案、评分标准和下一题动作。
 
-## 核心模块
+## 主要目录
 
-```text
-frontend/        React/Vite 前端：上传、批改结果、练习闭环、历史记录
-api/             FastAPI 路由：上传、批改、题库、Practice Orchestrator
-pipeline/        图片/PDF 加载、分题、提取、批改编排
-grader/          题型分类、多 Agent 批改、投票、解题生成
-verifier/        确定性校验：代数、统计、概率、化简
-formatter/       学生反馈、老师反馈、学习诊断总结
-questionbank/    SQLite 题库、Past Paper 和 Mark Scheme helper
-spec/            产品规格、视觉规则、验收标准
-docs/            产品路线、数据策略、题库方案
-agent_workflow/  长任务开发记忆和进度记录
-```
+| Path | 作用 |
+| --- | --- |
+| `frontend/` | React/Vite 前端，包含上传、批改结果、Large PDF、练习推荐和 replay 页面 |
+| `api/` | FastAPI 路由、上传缓存、Large PDF、题库推荐和 feedback/debug 接口 |
+| `pipeline/` | 图片/PDF 处理、切题提取、批改编排和 SSE workflow events |
+| `grader/` | 单题批改、多 agent 投票、置信度调整和 verifier 集成 |
+| `verifier/` | SymPy、概率、统计、分数化简等确定性兜底 |
+| `router/` | 模型抽象、模型注册、升级规则和路由上下文 |
+| `questionbank/` | CIE 题库、Mark Scheme、Past Paper 匹配和本地 SQLite 数据 |
+| `agent_workflow/` | 长任务开发的 agent 记忆、PRD、进度和 durable knowledge |
+| `reports/effectiveness/` | 上传链路、批改质量、速度和阶段耗时 benchmark 报告 |
+| `spec/` | 产品规格、验收标准、Large PDF 与长期 agent workflow 说明 |
 
-## 关键实现
+## 关键文档
 
-- 后端推荐编排器：[api/practice_orchestrator.py](api/practice_orchestrator.py)
-- 结果页练习组件：[frontend/src/components/practice/PracticeRecommendations.tsx](frontend/src/components/practice/PracticeRecommendations.tsx)
-- 前端上下文推导：[frontend/src/lib/practiceRecommendationContext.ts](frontend/src/lib/practiceRecommendationContext.ts)
-- Replay 验收页：[frontend/src/pages/PracticeRecommendationsReplayPage.tsx](frontend/src/pages/PracticeRecommendationsReplayPage.tsx)
-- 产品规格：[spec/product-ui-agent-spec.md](spec/product-ui-agent-spec.md)
-- 验收标准：[spec/acceptance.md](spec/acceptance.md)
+- [Runtime Pipeline And Benchmarks](docs/runtime-pipeline-and-benchmarks.md)
+- [Model Routing And OCR Chain](docs/model-routing-and-ocr-chain.md)
+- [规则校验与确定性兜底](docs/rule-based-verification.md)
+- [2026-06-26 后端实现路径](reports/effectiveness/20260626_backend_implementation_path.md)
+- [Acceptance Criteria](spec/acceptance.md)
+- [Long-Running Agent Workflow](spec/long-running-agent-workflow.md)
+- [Superpowers 插件使用说明](docs/superpowers-plugin-workflow.md)
+- [本地运行](RUN.md)
+- [部署指南](DEPLOY.md)
 
 ## 常用验证命令
 
 ```bash
-# Practice Orchestrator 后端和相关路由
-pytest test/test_practice_orchestrator.py test/test_paper_resolver.py test/test_large_pdf_mode.py -q
+PYTHONPATH=. pytest -q test/test_pipeline_streaming.py test/test_fast_upload_flow.py test/test_effectiveness.py test/test_large_pdf_mode.py
 
-# 前端练习闭环静态检查和构建
 cd frontend
-npm run test:practice-context
-npm run test:practice-orchestrator
 npm run build
+```
 
-# 真实浏览器视觉验收
-node ../scripts/visual_acceptance.mjs --path /__practice-recommendations-replay --skip-content-checks
+更完整的产品体验验收：
+
+```bash
+cd frontend
+npm run test:visual
 ```
 
 ## 当前边界
 
 - 真题题库以 Cambridge 9709 数学为核心，当前产品路线优先 P1-P6。
 - 非真题或题库外知识点不会强行推荐题目，会先询问或解释不可推荐原因。
-- Large PDF Mode 已有规格和部分后端能力，完整前端选页流程仍是后续重点。
-- 原始 past paper PDF 不适合直接放入普通 Git 历史，见 [docs/DATA.md](docs/DATA.md)。
+- 速度优化服从质量边界：不确定题宁可 `needs_review=true`，不能给学生一个看似确定但错误的结论。
+- 原始第三方 past paper PDF 不适合直接放入普通 Git 历史，见 [docs/DATA.md](docs/DATA.md)。
 
 ## 开源说明
 
@@ -136,19 +163,3 @@ Open-source hygiene:
 - Raw third-party exam PDFs are excluded from normal Git history.
 - The included SQLite data is for local demos and development; check redistribution rights before publishing additional paper corpora.
 - Hosted deployments should review [SECURITY.md](SECURITY.md), especially debug endpoints, CORS, upload handling, and admin tokens.
-
-## 进一步阅读
-
-- [项目展示文档入口](project-docs/README.md)
-- [产品思路](docs/PRODUCT.md)
-- [开发路线](docs/ROADMAP.md)
-- [数据策略](docs/DATA.md)
-- [规则校验与确定性兜底](docs/rule-based-verification.md)
-- [Agent 驱动开发与提效系统](docs/agent-driven-development.md)
-- [Superpowers 插件使用说明](docs/superpowers-plugin-workflow.md)
-- [本地运行](RUN.md)
-- [部署指南](DEPLOY.md)
-- [题库系统方案](docs/question-bank-proposal.md)
-- [长期 Agent 工作流](agent_workflow/README.md)
-- [贡献说明](CONTRIBUTING.md)
-- [安全说明](SECURITY.md)

@@ -19,6 +19,7 @@ import argparse
 import io
 import json
 import logging
+import os
 import re
 import sys
 from pathlib import Path
@@ -27,6 +28,11 @@ from typing import Optional
 from PIL import Image
 
 from questionbank.models import QuestionBankItem
+from questionbank.mineru_adapter import (
+    MinerUError,
+    read_mineru_text,
+    run_mineru_parse,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -230,8 +236,55 @@ def extract_questions_with_ai(
     return deduped
 
 
+def extract_questions_from_text_with_ai(
+    text: str,
+    prompt: str,
+    client=None,
+    max_chars: int = 60000,
+) -> list[dict]:
+    """Use MinerU text output as the primary source for structured extraction."""
+    from router.models import ModelRequest, TaskType
+
+    if client is None:
+        from router.models import ModelRole, build_registry
+        registry = build_registry()
+        client = registry.get(ModelRole.base) or registry[ModelRole.vision]
+
+    clipped = text.strip()[:max_chars]
+    if not clipped:
+        return []
+
+    text_prompt = (
+        prompt
+        + "\n\n以下是 MinerU 从 PDF 中按阅读顺序解析出的文本、公式和表格。"
+        + "请优先基于这些内容提取题目；如果版面噪音、页眉页脚或说明文字存在，请忽略。\n\n"
+        + "【MinerU 解析文本】\n"
+        + clipped
+    )
+    request = ModelRequest(
+        task=TaskType.extract,
+        prompt=text_prompt,
+        max_tokens=8192,
+    )
+
+    try:
+        response = client.call(request)
+        return [item for item in _parse_json_from_response(response) if isinstance(item, dict)]
+    except Exception as e:
+        log.error(f"  AI 文本提取失败: {e}")
+        return []
+
+
 def _parse_json_from_response(text: str) -> list[dict]:
     """从 AI 响应中提取 JSON 数组"""
+    from utils.json_repair import parse_json_array
+
+    try:
+        repaired = parse_json_array(text)
+        return [item for item in repaired if isinstance(item, dict)]
+    except Exception:
+        pass
+
     # 尝试直接解析
     text = text.strip()
     if text.startswith("["):
@@ -261,6 +314,13 @@ def _parse_json_from_response(text: str) -> list[dict]:
     return []
 
 
+def _env_truthy(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 # ---------------------------------------------------------------------------
 # 完整解析流程
 # ---------------------------------------------------------------------------
@@ -270,6 +330,9 @@ def parse_question_paper(
     ms_path: str | Path | None = None,
     client=None,
     dpi: int = 200,
+    use_mineru: bool | None = None,
+    require_mineru: bool | None = None,
+    include_mark_scheme: bool | None = None,
 ) -> list[QuestionBankItem]:
     """
     解析一份试卷 PDF，返回结构化题目列表。
@@ -288,19 +351,53 @@ def parse_question_paper(
 
     log.info(f"解析试卷: {qp_path.name}")
 
-    # 1. PDF → 图片
-    log.info("  转换 PDF 为图片...")
-    qp_images = pdf_to_images(qp_path, dpi=dpi)
-    log.info(f"  共 {len(qp_images)} 页")
+    mineru_enabled = _env_truthy("QUESTIONBANK_USE_MINERU") if use_mineru is None else use_mineru
+    mineru_required = (
+        _env_truthy("QUESTIONBANK_REQUIRE_MINERU")
+        if require_mineru is None
+        else require_mineru
+    )
+    should_parse_mark_scheme = (
+        _env_truthy("QUESTIONBANK_PARSE_MARK_SCHEME", default=True)
+        if include_mark_scheme is None
+        else include_mark_scheme
+    )
 
-    # 2. AI 提取题目
-    log.info("  AI 提取题目...")
-    questions_raw = extract_questions_with_ai(qp_images, QP_EXTRACTION_PROMPT, client)
+    questions_raw: list[dict] = []
+    if mineru_enabled:
+        try:
+            log.info("  MinerU 解析 PDF...")
+            mineru_result = run_mineru_parse(qp_path)
+            mineru_text = read_mineru_text(mineru_result)
+            if mineru_text.strip():
+                log.info(f"  MinerU 提取文本 {len(mineru_text)} 字符，开始结构化题目...")
+                questions_raw = extract_questions_from_text_with_ai(
+                    mineru_text, QP_EXTRACTION_PROMPT, client
+                )
+            if not questions_raw:
+                message = "MinerU did not produce structured questions."
+                if mineru_required:
+                    raise MinerUError(message)
+                log.warning(f"  {message} Falling back to image extraction.")
+        except MinerUError as exc:
+            if mineru_required:
+                raise
+            log.warning(f"  MinerU 不可用或解析失败，回退到图片/VL 路径: {exc}")
+
+    if not questions_raw:
+        # 1. PDF → 图片
+        log.info("  转换 PDF 为图片...")
+        qp_images = pdf_to_images(qp_path, dpi=dpi)
+        log.info(f"  共 {len(qp_images)} 页")
+
+        # 2. AI 提取题目
+        log.info("  AI 提取题目...")
+        questions_raw = extract_questions_with_ai(qp_images, QP_EXTRACTION_PROMPT, client)
     log.info(f"  提取到 {len(questions_raw)} 道题")
 
     # 3. 如果有 Mark Scheme，匹配答案
     ms_data = {}
-    if ms_path and Path(ms_path).exists():
+    if should_parse_mark_scheme and ms_path and Path(ms_path).exists():
         log.info(f"  解析 Mark Scheme: {Path(ms_path).name}")
         ms_images = pdf_to_images(ms_path, dpi=dpi)
         ms_raw = extract_questions_with_ai(ms_images, MS_EXTRACTION_PROMPT, client)
@@ -371,6 +468,9 @@ def parse_and_store(
     client=None,
     db_path: str | Path | None = None,
     skip_if_parsed: bool = True,
+    use_mineru: bool | None = None,
+    require_mineru: bool | None = None,
+    include_mark_scheme: bool | None = None,
 ) -> int:
     """解析试卷并存入数据库。返回入库题目数。"""
     from questionbank.database import ensure_db, upsert_paper, insert_question
@@ -399,7 +499,14 @@ def parse_and_store(
             return 0
 
     # 解析
-    items = parse_question_paper(qp_path, ms_path, client)
+    items = parse_question_paper(
+        qp_path,
+        ms_path,
+        client,
+        use_mineru=use_mineru,
+        require_mineru=require_mineru,
+        include_mark_scheme=include_mark_scheme,
+    )
     if not items:
         return 0
 
@@ -438,6 +545,9 @@ def parse_and_store(
 def batch_parse(
     directory: str | Path,
     client=None,
+    use_mineru: bool | None = None,
+    require_mineru: bool | None = None,
+    include_mark_scheme: bool | None = None,
 ) -> dict:
     """批量解析一个目录下的所有 QP PDF"""
     directory = Path(directory)
@@ -450,7 +560,13 @@ def batch_parse(
     for i, qp in enumerate(qp_files, 1):
         log.info(f"\n[{i}/{len(qp_files)}] {qp.name}")
         try:
-            count = parse_and_store(qp, client)
+            count = parse_and_store(
+                qp,
+                client,
+                use_mineru=use_mineru,
+                require_mineru=require_mineru,
+                include_mark_scheme=include_mark_scheme,
+            )
             if count > 0:
                 stats["success"] += 1
                 stats["questions"] += count
@@ -481,17 +597,36 @@ def main():
     parser.add_argument("--batch", action="store_true", help="批量解析目录下所有 QP")
     parser.add_argument("--store", action="store_true", help="解析结果存入数据库 (默认输出 JSON)")
     parser.add_argument("--dpi", type=int, default=200, help="PDF 转图片 DPI")
+    parser.add_argument("--use-mineru", action="store_true", help="优先使用 MinerU 解析 PDF 文本")
+    parser.add_argument("--require-mineru", action="store_true", help="MinerU 失败时不回退到视觉路径")
+    parser.add_argument("--skip-mark-scheme", action="store_true", help="只解析题目与标签，跳过 Mark Scheme")
     args = parser.parse_args()
 
     path = Path(args.path)
 
     if args.batch or path.is_dir():
-        batch_parse(path)
+        batch_parse(
+            path,
+            use_mineru=args.use_mineru or None,
+            require_mineru=args.require_mineru or None,
+            include_mark_scheme=False if args.skip_mark_scheme else None,
+        )
     elif args.store:
-        count = parse_and_store(path)
+        count = parse_and_store(
+            path,
+            use_mineru=args.use_mineru or None,
+            require_mineru=args.require_mineru or None,
+            include_mark_scheme=False if args.skip_mark_scheme else None,
+        )
         print(f"\n入库完成: {count} 道题")
     else:
-        items = parse_question_paper(path, find_mark_scheme(path))
+        items = parse_question_paper(
+            path,
+            find_mark_scheme(path),
+            use_mineru=args.use_mineru or None,
+            require_mineru=args.require_mineru or None,
+            include_mark_scheme=False if args.skip_mark_scheme else None,
+        )
         print(json.dumps(
             [item.model_dump(exclude_none=True) for item in items],
             ensure_ascii=False,

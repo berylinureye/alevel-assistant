@@ -320,6 +320,9 @@ def grade_question(
     base_grade: GradeResult | None = None,
     skip_verification: bool = False,
     q_type: QuestionType | None = None,
+    allow_llm_classification: bool = True,
+    parse_attempts: int = 3,
+    request_retries: int = 2,
 ) -> GradeResult:
     import time as _time
     _t_start = _time.monotonic()
@@ -330,7 +333,10 @@ def grade_question(
         classify_text = question.question_text
         if question.parent_stem:
             classify_text = f"{question.parent_stem}\n\n{classify_text}"
-        q_type = classify_question(classify_text, client)
+        q_type = classify_question(
+            classify_text,
+            client if allow_llm_classification else None,
+        )
         _log.info("Q%s classify: %s (%.1fs)", question.question_number, q_type.value, _time.monotonic() - _t_start)
 
     # Step 2: 取对应 prompt（task 决定 grade / review 模板，review 传入 base_grade）
@@ -369,12 +375,17 @@ def grade_question(
     )
 
     # Step 3: 调用 LLM
-    request = ModelRequest(task=task, prompt=prompt, max_tokens=4096)
+    request = ModelRequest(
+        task=task,
+        prompt=prompt,
+        max_tokens=4096,
+        max_retries=max(0, request_retries),
+    )
 
     # Step 4: 解析结果（不让脏输出/截断直接打断整条 pipeline）
     data: dict | None = None
     last_error: Exception | None = None
-    for attempt in range(3):
+    for attempt in range(max(1, parse_attempts)):
         _t_llm = _time.monotonic()
         raw = client.call(request)
         _log.info("Q%s LLM call attempt %d: %.1fs (%s)", question.question_number, attempt+1, _time.monotonic() - _t_llm, client.model_id)
@@ -389,7 +400,12 @@ def grade_question(
                 "No markdown, no code fences, no extra text.\n\n"
                 + prompt
             )
-            request = ModelRequest(task=task, prompt=strict, max_tokens=2048)
+            request = ModelRequest(
+                task=task,
+                prompt=strict,
+                max_tokens=2048,
+                max_retries=max(0, request_retries),
+            )
 
     if data is None:
         # 兜底：返回可用的 GradeResult，让上层走 review 或人工检查，而不是直接崩溃

@@ -39,7 +39,7 @@ _OUTPUT_BAN_RULES = """\
 _LATEX_RULES = """\
 LaTeX 格式规则（强制，不可省略）：
 - 所有数学内容必须严格使用 LaTeX 并用 $...$ 包裹，单个希腊字母、角度、变量都不例外
-  正确: $\\alpha$, $\\angle AOB = 2\\alpha$, $r\\theta$, $\\sin\\alpha$, $\\frac{1}{2}r^2\\theta$
+  正确: $\\alpha$, $\\angle AOB = 2\\alpha$, $r\\theta$, $\\sin\\alpha$, $\\frac{{1}}{{2}}r^2\\theta$
   错误: α, ∠AOB = 2α, r·θ, sinα, ½r²θ, r^2
 - 希腊字母写 \\alpha \\beta \\theta \\pi，不要直接打 α β θ π 等 Unicode
 - 角度、弧度、三角函数、分数、幂次、根号、向量符号全部必须 LaTeX 化

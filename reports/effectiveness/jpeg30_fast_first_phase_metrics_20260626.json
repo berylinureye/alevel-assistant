@@ -1,0 +1,2942 @@
+{
+  "status": "success",
+  "generated_at": "2026-06-26 11:53:45",
+  "input_dir": "test/fixtures/jpeg_benchmark_corpus",
+  "settings": {
+    "api_base": "http://127.0.0.1:8018",
+    "repeat": 1,
+    "max_concurrency": 1,
+    "tracked_events": true
+  },
+  "asset_summary": {
+    "count": 30,
+    "by_kind": {
+      "image": 30
+    },
+    "assets": [
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/01_normal_demo-input.jpg",
+        "kind": "image",
+        "size_bytes": 67876
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/02_normal_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+        "kind": "image",
+        "size_bytes": 623222
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/03_low_clarity_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+        "kind": "image",
+        "size_bytes": 240791
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/04_tilted_shadow_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+        "kind": "image",
+        "size_bytes": 640462
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/05_cross_page_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+        "kind": "image",
+        "size_bytes": 461143
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/06_blank_edge_微信图片_20260407170227_46_4.jpg",
+        "kind": "image",
+        "size_bytes": 14924
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/07_normal_微信图片_20260407164318_22_1047.jpg",
+        "kind": "image",
+        "size_bytes": 478923
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/08_normal_微信图片_20260407170127_45_4.jpg",
+        "kind": "image",
+        "size_bytes": 148282
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/09_low_clarity_demo-input.jpg",
+        "kind": "image",
+        "size_bytes": 38349
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/10_tilted_shadow_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+        "kind": "image",
+        "size_bytes": 618466
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/11_cross_page_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+        "kind": "image",
+        "size_bytes": 454878
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/12_blank_edge_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+        "kind": "image",
+        "size_bytes": 28581
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/13_normal_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+        "kind": "image",
+        "size_bytes": 604612
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/14_normal_微信图片_20260407170227_46_4.jpg",
+        "kind": "image",
+        "size_bytes": 187694
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/15_low_clarity_微信图片_20260407164318_22_1047.jpg",
+        "kind": "image",
+        "size_bytes": 219025
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/16_tilted_shadow_微信图片_20260407170127_45_4.jpg",
+        "kind": "image",
+        "size_bytes": 212209
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/17_cross_page_demo-input.jpg",
+        "kind": "image",
+        "size_bytes": 51005
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/18_blank_edge_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+        "kind": "image",
+        "size_bytes": 28581
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/19_normal_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+        "kind": "image",
+        "size_bytes": 575713
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/20_normal_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+        "kind": "image",
+        "size_bytes": 631465
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/21_low_clarity_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+        "kind": "image",
+        "size_bytes": 258850
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/22_tilted_shadow_微信图片_20260407170227_46_4.jpg",
+        "kind": "image",
+        "size_bytes": 258026
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/23_cross_page_微信图片_20260407164318_22_1047.jpg",
+        "kind": "image",
+        "size_bytes": 387142
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/24_blank_edge_微信图片_20260407170127_45_4.jpg",
+        "kind": "image",
+        "size_bytes": 14924
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/25_normal_demo-input.jpg",
+        "kind": "image",
+        "size_bytes": 67876
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/26_normal_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+        "kind": "image",
+        "size_bytes": 623222
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/27_low_clarity_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+        "kind": "image",
+        "size_bytes": 240791
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/28_tilted_shadow_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+        "kind": "image",
+        "size_bytes": 640462
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/29_cross_page_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+        "kind": "image",
+        "size_bytes": 461143
+      },
+      {
+        "path": "test/fixtures/jpeg_benchmark_corpus/30_blank_edge_微信图片_20260407170227_46_4.jpg",
+        "kind": "image",
+        "size_bytes": 14924
+      }
+    ]
+  },
+  "effectiveness": {
+    "overall_score": 82,
+    "overall_status": "fail",
+    "metrics": {
+      "upload_success_rate": {
+        "label": "上传成功率",
+        "value": 1.0,
+        "target": 0.95,
+        "status": "pass",
+        "sample_size": 30,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "parse_success_rate": {
+        "label": "可解析率",
+        "value": 1.0,
+        "target": 0.9,
+        "status": "pass",
+        "sample_size": 30,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "readable_question_rate": {
+        "label": "可读题目率",
+        "value": 1.0,
+        "target": 0.85,
+        "status": "pass",
+        "sample_size": 74,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "image_end_to_end_p95_ms": {
+        "label": "图片端到端 P95",
+        "value": 131071,
+        "target": 60000,
+        "status": "fail",
+        "sample_size": 30,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "pdf_end_to_end_p95_ms": {
+        "label": "PDF 端到端 P95",
+        "value": null,
+        "target": 90000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "first_question_p95_ms": {
+        "label": "首题返回 P95",
+        "value": 88901,
+        "target": 30000,
+        "status": "fail",
+        "sample_size": 30,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "ten_image_batch_p95_ms": {
+        "label": "10 图一次上传 P95",
+        "value": null,
+        "target": 60000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "sse_first_event_p95_ms": {
+        "label": "SSE 首事件 P95",
+        "value": 489,
+        "target": 5000,
+        "status": "pass",
+        "sample_size": 30,
+        "unit": "ms",
+        "weight": 0,
+        "hard_gate": false
+      },
+      "segmentation_done_p95_ms": {
+        "label": "识别完成 P95",
+        "value": 77197,
+        "target": 20000,
+        "status": "fail",
+        "sample_size": 30,
+        "unit": "ms",
+        "weight": 0,
+        "hard_gate": false
+      },
+      "first_grading_after_segmentation_p95_ms": {
+        "label": "首题批改等待 P95",
+        "value": 34809,
+        "target": 15000,
+        "status": "fail",
+        "sample_size": 30,
+        "unit": "ms",
+        "weight": 0,
+        "hard_gate": false
+      },
+      "summary_after_first_question_p95_ms": {
+        "label": "首题后汇总 P95",
+        "value": 113997,
+        "target": 15000,
+        "status": "fail",
+        "sample_size": 30,
+        "unit": "ms",
+        "weight": 0,
+        "hard_gate": false
+      },
+      "recognition_timeout_count": {
+        "label": "识别超时题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 74,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "unreadable_question_count": {
+        "label": "不可读题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 74,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "fast_batch_timeout_count": {
+        "label": "快批超时题数",
+        "value": 2,
+        "target": 0,
+        "status": "fail",
+        "sample_size": 74,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "expected_question_recall_rate": {
+        "label": "标注题目召回率",
+        "value": null,
+        "target": 0.95,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "expected_question_order_rate": {
+        "label": "标注题目顺序一致率",
+        "value": null,
+        "target": 0.95,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "marked_correctness_match_rate": {
+        "label": "标注正确性一致率",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "marked_score_match_rate": {
+        "label": "标注精确分数一致率",
+        "value": null,
+        "target": 0.85,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_relevance_rate": {
+        "label": "标注推荐相关性",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_real_hit_rate": {
+        "label": "推荐真实题库命中率",
+        "value": null,
+        "target": 1.0,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "paper_compliance_rate": {
+        "label": "Paper 合规率",
+        "value": null,
+        "target": 1.0,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "repeat_question_count_stability": {
+        "label": "重复运行题目数稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "repeat_recommendation_mode_stability": {
+        "label": "重复运行推荐模式稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      }
+    },
+    "failures": [
+      {
+        "metric": "image_end_to_end_p95_ms",
+        "label": "图片端到端 P95",
+        "value": 131071,
+        "target": 60000
+      },
+      {
+        "metric": "first_question_p95_ms",
+        "label": "首题返回 P95",
+        "value": 88901,
+        "target": 30000
+      },
+      {
+        "metric": "segmentation_done_p95_ms",
+        "label": "识别完成 P95",
+        "value": 77197,
+        "target": 20000
+      },
+      {
+        "metric": "first_grading_after_segmentation_p95_ms",
+        "label": "首题批改等待 P95",
+        "value": 34809,
+        "target": 15000
+      },
+      {
+        "metric": "summary_after_first_question_p95_ms",
+        "label": "首题后汇总 P95",
+        "value": 113997,
+        "target": 15000
+      },
+      {
+        "metric": "fast_batch_timeout_count",
+        "label": "快批超时题数",
+        "value": 2,
+        "target": 0
+      }
+    ],
+    "summary": {
+      "records": 30,
+      "successful_records": 30,
+      "parsed_records": 30,
+      "asset_count": 30,
+      "question_error_counts": {
+        "unknown": 5,
+        "unanswered": 12,
+        "correct": 33,
+        "arithmetic_error": 2,
+        "incomplete_working": 7,
+        "fast_batch_timeout": 2,
+        "missing_parent_context": 13
+      }
+    }
+  },
+  "records": [
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/18_blank_edge_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "filename": "18_blank_edge_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "kind": "image",
+      "size_bytes": 28581,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 13782,
+      "first_question_ms": 13779,
+      "phase_timings": {
+        "sse_first_event_ms": 77,
+        "segmentation_done_ms": 9046,
+        "first_question_ms": 13779,
+        "first_grading_after_segmentation_ms": 4733,
+        "summary_after_first_question_ms": 0
+      },
+      "question_count": 1,
+      "question_error_counts": {
+        "unknown": 1
+      },
+      "questions": [
+        {
+          "question_number": "1",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "unknown",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 1,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 0,
+        "review_count": 1,
+        "score_total": 0.0,
+        "full_score_total": 1.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {},
+        "estimated_review_minutes": 10,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 unknown。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "unknown",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/26_normal_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "filename": "26_normal_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "kind": "image",
+      "size_bytes": 623222,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 92427,
+      "first_question_ms": 69422,
+      "phase_timings": {
+        "sse_first_event_ms": 41,
+        "segmentation_done_ms": 69420,
+        "first_question_ms": 69422,
+        "first_grading_after_segmentation_ms": 2,
+        "summary_after_first_question_ms": 23000
+      },
+      "question_count": 5,
+      "question_error_counts": {
+        "unanswered": 2,
+        "correct": 3
+      },
+      "questions": [
+        {
+          "question_number": "3(i)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "3(ii)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "2(iii)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "variance"
+          ]
+        },
+        {
+          "question_number": "2(i)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "Mean",
+            "Summary Statistics"
+          ]
+        },
+        {
+          "question_number": "2(ii)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "standard_deviation",
+            "variance"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 5,
+        "correct_count": 3,
+        "incorrect_count": 0,
+        "unanswered_count": 2,
+        "review_count": 0,
+        "score_total": 3.0,
+        "full_score_total": 5.0,
+        "common_error_types": [
+          "unanswered"
+        ],
+        "knowledge_tags_summary": {
+          "variance": 2,
+          "Mean": 1,
+          "Summary Statistics": 1,
+          "standard_deviation": 1
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 variance。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "variance",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/10_tilted_shadow_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "filename": "10_tilted_shadow_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "kind": "image",
+      "size_bytes": 618466,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 40613,
+      "first_question_ms": 26530,
+      "phase_timings": {
+        "sse_first_event_ms": 60,
+        "segmentation_done_ms": 26528,
+        "first_question_ms": 26530,
+        "first_grading_after_segmentation_ms": 2,
+        "summary_after_first_question_ms": 14080
+      },
+      "question_count": 5,
+      "question_error_counts": {
+        "unanswered": 2,
+        "correct": 3
+      },
+      "questions": [
+        {
+          "question_number": "3(i)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "3(ii)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "2(iii)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "variance"
+          ]
+        },
+        {
+          "question_number": "2(i)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "mean",
+            "summary_statistics"
+          ]
+        },
+        {
+          "question_number": "2(ii)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 5,
+        "correct_count": 3,
+        "incorrect_count": 0,
+        "unanswered_count": 2,
+        "review_count": 0,
+        "score_total": 3.0,
+        "full_score_total": 5.0,
+        "common_error_types": [
+          "unanswered"
+        ],
+        "knowledge_tags_summary": {
+          "variance": 1,
+          "mean": 1,
+          "summary_statistics": 1
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 variance。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "variance",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/27_low_clarity_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "filename": "27_low_clarity_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "kind": "image",
+      "size_bytes": 240791,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 26443,
+      "first_question_ms": 18666,
+      "phase_timings": {
+        "sse_first_event_ms": 50,
+        "segmentation_done_ms": 18666,
+        "first_question_ms": 18666,
+        "first_grading_after_segmentation_ms": 0,
+        "summary_after_first_question_ms": 7772
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "unanswered": 1,
+        "arithmetic_error": 1
+      },
+      "questions": [
+        {
+          "question_number": "15(ii)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "15(i)",
+          "is_correct": false,
+          "score": 1.0,
+          "full_score": 3.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "arithmetic_error",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 1,
+        "review_count": 0,
+        "score_total": 1.0,
+        "full_score_total": 4.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {},
+        "estimated_review_minutes": 6,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 unanswered。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "unanswered",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/02_normal_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "filename": "02_normal_IMG_BED71913-F089-4A0F-8813-33FC.jpg",
+      "kind": "image",
+      "size_bytes": 623222,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 27364,
+      "first_question_ms": 21029,
+      "phase_timings": {
+        "sse_first_event_ms": 49,
+        "segmentation_done_ms": 21023,
+        "first_question_ms": 21029,
+        "first_grading_after_segmentation_ms": 6,
+        "summary_after_first_question_ms": 6327
+      },
+      "question_count": 5,
+      "question_error_counts": {
+        "unanswered": 2,
+        "correct": 3
+      },
+      "questions": [
+        {
+          "question_number": "3(i)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "3(ii)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "2(i)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "mean",
+            "summary_statistics"
+          ]
+        },
+        {
+          "question_number": "2(ii)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "standard_deviation",
+            "variance"
+          ]
+        },
+        {
+          "question_number": "2(iii)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "variance"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 5,
+        "correct_count": 3,
+        "incorrect_count": 0,
+        "unanswered_count": 2,
+        "review_count": 0,
+        "score_total": 3.0,
+        "full_score_total": 5.0,
+        "common_error_types": [
+          "unanswered"
+        ],
+        "knowledge_tags_summary": {
+          "mean": 1,
+          "summary_statistics": 1,
+          "standard_deviation": 1,
+          "variance": 2
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 variance。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "variance",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/11_cross_page_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "filename": "11_cross_page_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "kind": "image",
+      "size_bytes": 454878,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 50697,
+      "first_question_ms": 18994,
+      "phase_timings": {
+        "sse_first_event_ms": 64,
+        "segmentation_done_ms": 18993,
+        "first_question_ms": 18994,
+        "first_grading_after_segmentation_ms": 1,
+        "summary_after_first_question_ms": 31701
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "unanswered": 1,
+        "incomplete_working": 1
+      },
+      "questions": [
+        {
+          "question_number": "15(ii)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "15(i)",
+          "is_correct": false,
+          "score": 1.0,
+          "full_score": 3.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "Median",
+            "Interquartile Range",
+            "Discrete Data"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 1,
+        "review_count": 0,
+        "score_total": 1.0,
+        "full_score_total": 4.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "Median": 1,
+          "Interquartile Range": 1,
+          "Discrete Data": 1
+        },
+        "estimated_review_minutes": 6,
+        "priority_topics": [
+          {
+            "topic": "Median",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          },
+          {
+            "topic": "Interquartile Range",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          },
+          {
+            "topic": "Discrete Data",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          }
+        ],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 median。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "median",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/28_tilted_shadow_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "filename": "28_tilted_shadow_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "kind": "image",
+      "size_bytes": 640462,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 54536,
+      "first_question_ms": 21475,
+      "phase_timings": {
+        "sse_first_event_ms": 74,
+        "segmentation_done_ms": 18081,
+        "first_question_ms": 21475,
+        "first_grading_after_segmentation_ms": 3394,
+        "summary_after_first_question_ms": 33060
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "correct": 2
+      },
+      "questions": [
+        {
+          "question_number": "11(i)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11(ii)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 2,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 6.0,
+        "full_score_total": 6.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "sigma_notation": 2
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 sigma_notation。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "sigma_notation",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/12_blank_edge_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "filename": "12_blank_edge_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "kind": "image",
+      "size_bytes": 28581,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 44071,
+      "first_question_ms": 44069,
+      "phase_timings": {
+        "sse_first_event_ms": 33,
+        "segmentation_done_ms": 9260,
+        "first_question_ms": 44069,
+        "first_grading_after_segmentation_ms": 34809,
+        "summary_after_first_question_ms": 1
+      },
+      "question_count": 1,
+      "question_error_counts": {
+        "unknown": 1
+      },
+      "questions": [
+        {
+          "question_number": "1",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "unknown",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 1,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 0,
+        "review_count": 1,
+        "score_total": 0.0,
+        "full_score_total": 1.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {},
+        "estimated_review_minutes": 10,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 unknown。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "unknown",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/03_low_clarity_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "filename": "03_low_clarity_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "kind": "image",
+      "size_bytes": 240791,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 51122,
+      "first_question_ms": 14250,
+      "phase_timings": {
+        "sse_first_event_ms": 54,
+        "segmentation_done_ms": 14249,
+        "first_question_ms": 14250,
+        "first_grading_after_segmentation_ms": 1,
+        "summary_after_first_question_ms": 36868
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "unanswered": 1,
+        "arithmetic_error": 1
+      },
+      "questions": [
+        {
+          "question_number": "15(ii)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "15(i)",
+          "is_correct": false,
+          "score": 1.0,
+          "full_score": 3.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "arithmetic_error",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 1,
+        "review_count": 0,
+        "score_total": 1.0,
+        "full_score_total": 4.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {},
+        "estimated_review_minutes": 6,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 unanswered。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "unanswered",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/29_cross_page_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "filename": "29_cross_page_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "kind": "image",
+      "size_bytes": 461143,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 20216,
+      "first_question_ms": 19523,
+      "phase_timings": {
+        "sse_first_event_ms": 49,
+        "segmentation_done_ms": 15227,
+        "first_question_ms": 19523,
+        "first_grading_after_segmentation_ms": 4296,
+        "summary_after_first_question_ms": 691
+      },
+      "question_count": 3,
+      "question_error_counts": {
+        "correct": 2,
+        "incomplete_working": 1
+      },
+      "questions": [
+        {
+          "question_number": "3",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "estimated_mean",
+            "grouped_data"
+          ]
+        },
+        {
+          "question_number": "4(i)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "midpoint",
+            "grouped_data"
+          ]
+        },
+        {
+          "question_number": "4(ii)",
+          "is_correct": false,
+          "score": 0.5,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "grouped_data",
+            "mean_estimation"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 3,
+        "correct_count": 2,
+        "incorrect_count": 1,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 2.5,
+        "full_score_total": 3.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "estimated_mean": 1,
+          "grouped_data": 3,
+          "midpoint": 1,
+          "mean_estimation": 1
+        },
+        "estimated_review_minutes": 6,
+        "priority_topics": [
+          {
+            "topic": "grouped_data",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          },
+          {
+            "topic": "mean_estimation",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          }
+        ],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 grouped_data。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "grouped_data",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/13_normal_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "filename": "13_normal_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "kind": "image",
+      "size_bytes": 604612,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 53923,
+      "first_question_ms": 16471,
+      "phase_timings": {
+        "sse_first_event_ms": 38,
+        "segmentation_done_ms": 12306,
+        "first_question_ms": 16471,
+        "first_grading_after_segmentation_ms": 4165,
+        "summary_after_first_question_ms": 37449
+      },
+      "question_count": 3,
+      "question_error_counts": {
+        "correct": 3
+      },
+      "questions": [
+        {
+          "question_number": "4(ii)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "mean",
+            "grouped_data",
+            "midpoint"
+          ]
+        },
+        {
+          "question_number": "3",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "mean of grouped data",
+            "midpoint"
+          ]
+        },
+        {
+          "question_number": "4(i)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "mid-interval value",
+            "grouped data"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 3,
+        "correct_count": 3,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 3.0,
+        "full_score_total": 3.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "mean": 1,
+          "grouped_data": 1,
+          "midpoint": 2,
+          "mean of grouped data": 1,
+          "mid-interval value": 1,
+          "grouped data": 1
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 midpoint。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "midpoint",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/30_blank_edge_微信图片_20260407170227_46_4.jpg",
+      "filename": "30_blank_edge_微信图片_20260407170227_46_4.jpg",
+      "kind": "image",
+      "size_bytes": 14924,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 48929,
+      "first_question_ms": 48927,
+      "phase_timings": {
+        "sse_first_event_ms": 39,
+        "segmentation_done_ms": 6189,
+        "first_question_ms": 48927,
+        "first_grading_after_segmentation_ms": 42738,
+        "summary_after_first_question_ms": 0
+      },
+      "question_count": 1,
+      "question_error_counts": {
+        "unknown": 1
+      },
+      "questions": [
+        {
+          "question_number": "1",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "unknown",
+          "knowledge_tags": [
+            "algebra"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 1,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 0,
+        "review_count": 1,
+        "score_total": 0.0,
+        "full_score_total": 1.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "algebra": 1
+        },
+        "estimated_review_minutes": 10,
+        "priority_topics": [
+          {
+            "topic": "algebra",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          }
+        ],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 algebra。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "algebra",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/14_normal_微信图片_20260407170227_46_4.jpg",
+      "filename": "14_normal_微信图片_20260407170227_46_4.jpg",
+      "kind": "image",
+      "size_bytes": 187694,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 131071,
+      "first_question_ms": 16943,
+      "phase_timings": {
+        "sse_first_event_ms": 31,
+        "segmentation_done_ms": 10727,
+        "first_question_ms": 16943,
+        "first_grading_after_segmentation_ms": 6216,
+        "summary_after_first_question_ms": 113997
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "correct": 1,
+        "fast_batch_timeout": 1
+      },
+      "questions": [
+        {
+          "question_number": "2",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "binomial expansion",
+            "binomial theorem"
+          ]
+        },
+        {
+          "question_number": "1",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "fast_batch_timeout",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 1,
+        "incorrect_count": 1,
+        "unanswered_count": 0,
+        "review_count": 1,
+        "score_total": 1.0,
+        "full_score_total": 3.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "binomial expansion": 1,
+          "binomial theorem": 1
+        },
+        "estimated_review_minutes": 10,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 binomial_expansion。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "binomial_expansion",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/04_tilted_shadow_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "filename": "04_tilted_shadow_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "kind": "image",
+      "size_bytes": 640462,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 49653,
+      "first_question_ms": 46930,
+      "phase_timings": {
+        "sse_first_event_ms": 415,
+        "segmentation_done_ms": 35539,
+        "first_question_ms": 46930,
+        "first_grading_after_segmentation_ms": 11391,
+        "summary_after_first_question_ms": 2629
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "correct": 2
+      },
+      "questions": [
+        {
+          "question_number": "11(ii)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11(i)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 2,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 6.0,
+        "full_score_total": 6.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "sigma_notation": 2
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 sigma_notation。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "sigma_notation",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/15_low_clarity_微信图片_20260407164318_22_1047.jpg",
+      "filename": "15_low_clarity_微信图片_20260407164318_22_1047.jpg",
+      "kind": "image",
+      "size_bytes": 219025,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 27651,
+      "first_question_ms": 17350,
+      "phase_timings": {
+        "sse_first_event_ms": 377,
+        "segmentation_done_ms": 17216,
+        "first_question_ms": 17350,
+        "first_grading_after_segmentation_ms": 134,
+        "summary_after_first_question_ms": 10186
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "unanswered": 1,
+        "incomplete_working": 1
+      },
+      "questions": [
+        {
+          "question_number": "8b",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 3.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "8a",
+          "is_correct": false,
+          "score": 1.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "volume of a sphere",
+            "rates of change"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 1,
+        "review_count": 0,
+        "score_total": 1.0,
+        "full_score_total": 5.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "volume of a sphere": 1,
+          "rates of change": 1
+        },
+        "estimated_review_minutes": 6,
+        "priority_topics": [
+          {
+            "topic": "volume of a sphere",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          },
+          {
+            "topic": "rates of change",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          }
+        ],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 volume_of_a_sphere。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "volume_of_a_sphere",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/16_tilted_shadow_微信图片_20260407170127_45_4.jpg",
+      "filename": "16_tilted_shadow_微信图片_20260407170127_45_4.jpg",
+      "kind": "image",
+      "size_bytes": 212209,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 97907,
+      "first_question_ms": 96901,
+      "phase_timings": {
+        "sse_first_event_ms": 280,
+        "segmentation_done_ms": 92093,
+        "first_question_ms": 96901,
+        "first_grading_after_segmentation_ms": 4808,
+        "summary_after_first_question_ms": 843
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "correct": 2
+      },
+      "questions": [
+        {
+          "question_number": "11a",
+          "is_correct": true,
+          "score": 5.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "graph_transformations"
+          ]
+        },
+        {
+          "question_number": "11b",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "inverse functions",
+            "graph transformations",
+            "reflection"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 2,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 7.0,
+        "full_score_total": 7.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "graph_transformations": 1,
+          "inverse functions": 1,
+          "graph transformations": 1,
+          "reflection": 1
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 graph_transformations。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "graph_transformations",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/01_normal_demo-input.jpg",
+      "filename": "01_normal_demo-input.jpg",
+      "kind": "image",
+      "size_bytes": 67876,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 13277,
+      "first_question_ms": 12839,
+      "phase_timings": {
+        "sse_first_event_ms": 304,
+        "segmentation_done_ms": 12627,
+        "first_question_ms": 12839,
+        "first_grading_after_segmentation_ms": 212,
+        "summary_after_first_question_ms": 292
+      },
+      "question_count": 4,
+      "question_error_counts": {
+        "missing_parent_context": 4
+      },
+      "questions": [
+        {
+          "question_number": "a",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "c",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "d",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "e",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 4,
+        "correct_count": 0,
+        "incorrect_count": 4,
+        "unanswered_count": 0,
+        "review_count": 4,
+        "score_total": 0.0,
+        "full_score_total": 0.0,
+        "common_error_types": [
+          "missing_parent_context"
+        ],
+        "knowledge_tags_summary": {},
+        "estimated_review_minutes": 40,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 missing_parent_context。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "missing_parent_context",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/17_cross_page_demo-input.jpg",
+      "filename": "17_cross_page_demo-input.jpg",
+      "kind": "image",
+      "size_bytes": 51005,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 17656,
+      "first_question_ms": 17341,
+      "phase_timings": {
+        "sse_first_event_ms": 274,
+        "segmentation_done_ms": 17187,
+        "first_question_ms": 17341,
+        "first_grading_after_segmentation_ms": 154,
+        "summary_after_first_question_ms": 181
+      },
+      "question_count": 3,
+      "question_error_counts": {
+        "missing_parent_context": 3
+      },
+      "questions": [
+        {
+          "question_number": "a",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "c",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "d",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 3,
+        "correct_count": 0,
+        "incorrect_count": 3,
+        "unanswered_count": 0,
+        "review_count": 3,
+        "score_total": 0.0,
+        "full_score_total": 0.0,
+        "common_error_types": [
+          "missing_parent_context"
+        ],
+        "knowledge_tags_summary": {},
+        "estimated_review_minutes": 30,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 missing_parent_context。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "missing_parent_context",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/05_cross_page_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "filename": "05_cross_page_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "kind": "image",
+      "size_bytes": 461143,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 98402,
+      "first_question_ms": 88901,
+      "phase_timings": {
+        "sse_first_event_ms": 378,
+        "segmentation_done_ms": 77197,
+        "first_question_ms": 88901,
+        "first_grading_after_segmentation_ms": 11704,
+        "summary_after_first_question_ms": 9392
+      },
+      "question_count": 3,
+      "question_error_counts": {
+        "correct": 2,
+        "incomplete_working": 1
+      },
+      "questions": [
+        {
+          "question_number": "4(i)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "grouped_data",
+            "class_midpoint"
+          ]
+        },
+        {
+          "question_number": "3",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "grouped data mean",
+            "midpoint estimate"
+          ]
+        },
+        {
+          "question_number": "4(ii)",
+          "is_correct": false,
+          "score": 0.5,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "grouped data",
+            "estimated mean"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 3,
+        "correct_count": 2,
+        "incorrect_count": 1,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 2.5,
+        "full_score_total": 3.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "grouped_data": 1,
+          "class_midpoint": 1,
+          "grouped data mean": 1,
+          "midpoint estimate": 1,
+          "grouped data": 1,
+          "estimated mean": 1
+        },
+        "estimated_review_minutes": 6,
+        "priority_topics": [
+          {
+            "topic": "grouped data",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          },
+          {
+            "topic": "estimated mean",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          }
+        ],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 grouped_data。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "grouped_data",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/19_normal_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "filename": "19_normal_IMG_FFDCA86C-D851-4C2A-B40C-3874.jpg",
+      "kind": "image",
+      "size_bytes": 575713,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 34993,
+      "first_question_ms": 34477,
+      "phase_timings": {
+        "sse_first_event_ms": 636,
+        "segmentation_done_ms": 28916,
+        "first_question_ms": 34477,
+        "first_grading_after_segmentation_ms": 5561,
+        "summary_after_first_question_ms": 386
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "unknown": 1,
+        "incomplete_working": 1
+      },
+      "questions": [
+        {
+          "question_number": "15(ii)",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "unknown",
+          "knowledge_tags": [
+            "mean",
+            "outliers",
+            "measures of central tendency"
+          ]
+        },
+        {
+          "question_number": "15(i)",
+          "is_correct": false,
+          "score": 1.0,
+          "full_score": 3.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "Median",
+            "Interquartile Range",
+            "Discrete Data"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 0,
+        "incorrect_count": 2,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 1.0,
+        "full_score_total": 4.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "mean": 1,
+          "outliers": 1,
+          "measures of central tendency": 1,
+          "Median": 1,
+          "Interquartile Range": 1,
+          "Discrete Data": 1
+        },
+        "estimated_review_minutes": 12,
+        "priority_topics": [
+          {
+            "topic": "mean",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          },
+          {
+            "topic": "outliers",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          },
+          {
+            "topic": "measures of central tendency",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          }
+        ],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 mean。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "mean",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/20_normal_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "filename": "20_normal_IMG_B1005BE1-7A67-4E7D-A56C-7B24.jpg",
+      "kind": "image",
+      "size_bytes": 631465,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 28474,
+      "first_question_ms": 25575,
+      "phase_timings": {
+        "sse_first_event_ms": 342,
+        "segmentation_done_ms": 22220,
+        "first_question_ms": 25575,
+        "first_grading_after_segmentation_ms": 3355,
+        "summary_after_first_question_ms": 2797
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "correct": 2
+      },
+      "questions": [
+        {
+          "question_number": "11(i)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11(ii)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 2,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 6.0,
+        "full_score_total": 6.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "sigma_notation": 2
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 sigma_notation。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "sigma_notation",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/06_blank_edge_微信图片_20260407170227_46_4.jpg",
+      "filename": "06_blank_edge_微信图片_20260407170227_46_4.jpg",
+      "kind": "image",
+      "size_bytes": 14924,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 12330,
+      "first_question_ms": 12177,
+      "phase_timings": {
+        "sse_first_event_ms": 237,
+        "segmentation_done_ms": 9111,
+        "first_question_ms": 12177,
+        "first_grading_after_segmentation_ms": 3066,
+        "summary_after_first_question_ms": 18
+      },
+      "question_count": 1,
+      "question_error_counts": {
+        "correct": 1
+      },
+      "questions": [
+        {
+          "question_number": "1",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "solving_equations"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 1,
+        "correct_count": 1,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 1,
+        "score_total": 1.0,
+        "full_score_total": 1.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "solving_equations": 1
+        },
+        "estimated_review_minutes": 4,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 solving_equations。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "solving_equations",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/21_low_clarity_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "filename": "21_low_clarity_IMG_D49734AE-67A1-42A9-B5FB-7381.jpg",
+      "kind": "image",
+      "size_bytes": 258850,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 28066,
+      "first_question_ms": 25257,
+      "phase_timings": {
+        "sse_first_event_ms": 350,
+        "segmentation_done_ms": 21644,
+        "first_question_ms": 25257,
+        "first_grading_after_segmentation_ms": 3613,
+        "summary_after_first_question_ms": 2670
+      },
+      "question_count": 3,
+      "question_error_counts": {
+        "correct": 3
+      },
+      "questions": [
+        {
+          "question_number": "4(i)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "mid-interval value",
+            "grouped data"
+          ]
+        },
+        {
+          "question_number": "3",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "grouped_data",
+            "mean_estimation",
+            "midpoints"
+          ]
+        },
+        {
+          "question_number": "4(ii)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "mean_from_grouped_data",
+            "midpoints",
+            "summary_statistics"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 3,
+        "correct_count": 3,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 3.0,
+        "full_score_total": 3.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "mid-interval value": 1,
+          "grouped data": 1,
+          "grouped_data": 1,
+          "mean_estimation": 1,
+          "midpoints": 2,
+          "mean_from_grouped_data": 1,
+          "summary_statistics": 1
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 midpoints。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "midpoints",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/07_normal_微信图片_20260407164318_22_1047.jpg",
+      "filename": "07_normal_微信图片_20260407164318_22_1047.jpg",
+      "kind": "image",
+      "size_bytes": 478923,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 19726,
+      "first_question_ms": 15105,
+      "phase_timings": {
+        "sse_first_event_ms": 404,
+        "segmentation_done_ms": 15040,
+        "first_question_ms": 15105,
+        "first_grading_after_segmentation_ms": 65,
+        "summary_after_first_question_ms": 4466
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "unanswered": 1,
+        "incomplete_working": 1
+      },
+      "questions": [
+        {
+          "question_number": "8b",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 3.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "8a",
+          "is_correct": false,
+          "score": 1.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "Volume of a sphere",
+            "Rates of change"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 1,
+        "review_count": 0,
+        "score_total": 1.0,
+        "full_score_total": 5.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "Volume of a sphere": 1,
+          "Rates of change": 1
+        },
+        "estimated_review_minutes": 6,
+        "priority_topics": [
+          {
+            "topic": "Volume of a sphere",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          },
+          {
+            "topic": "Rates of change",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          }
+        ],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 volume_of_a_sphere。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "volume_of_a_sphere",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/22_tilted_shadow_微信图片_20260407170227_46_4.jpg",
+      "filename": "22_tilted_shadow_微信图片_20260407170227_46_4.jpg",
+      "kind": "image",
+      "size_bytes": 258026,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 137573,
+      "first_question_ms": 21918,
+      "phase_timings": {
+        "sse_first_event_ms": 224,
+        "segmentation_done_ms": 17210,
+        "first_question_ms": 21918,
+        "first_grading_after_segmentation_ms": 4708,
+        "summary_after_first_question_ms": 115440
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "correct": 1,
+        "fast_batch_timeout": 1
+      },
+      "questions": [
+        {
+          "question_number": "2",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "Binomial Expansion"
+          ]
+        },
+        {
+          "question_number": "1",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "fast_batch_timeout",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 1,
+        "incorrect_count": 1,
+        "unanswered_count": 0,
+        "review_count": 1,
+        "score_total": 1.0,
+        "full_score_total": 3.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "Binomial Expansion": 1
+        },
+        "estimated_review_minutes": 10,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 binomial_expansion。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "binomial_expansion",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/08_normal_微信图片_20260407170127_45_4.jpg",
+      "filename": "08_normal_微信图片_20260407170127_45_4.jpg",
+      "kind": "image",
+      "size_bytes": 148282,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 43013,
+      "first_question_ms": 32609,
+      "phase_timings": {
+        "sse_first_event_ms": 483,
+        "segmentation_done_ms": 20480,
+        "first_question_ms": 32609,
+        "first_grading_after_segmentation_ms": 12129,
+        "summary_after_first_question_ms": 10237
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "correct": 2
+      },
+      "questions": [
+        {
+          "question_number": "11b",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "inverse functions",
+            "graphs",
+            "reflections"
+          ]
+        },
+        {
+          "question_number": "11a",
+          "is_correct": true,
+          "score": 5.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "transformations"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 2,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 7.0,
+        "full_score_total": 7.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "inverse functions": 1,
+          "graphs": 1,
+          "reflections": 1,
+          "transformations": 1
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 inverse_functions。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "inverse_functions",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/23_cross_page_微信图片_20260407164318_22_1047.jpg",
+      "filename": "23_cross_page_微信图片_20260407164318_22_1047.jpg",
+      "kind": "image",
+      "size_bytes": 387142,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 60328,
+      "first_question_ms": 37862,
+      "phase_timings": {
+        "sse_first_event_ms": 466,
+        "segmentation_done_ms": 37636,
+        "first_question_ms": 37862,
+        "first_grading_after_segmentation_ms": 226,
+        "summary_after_first_question_ms": 22212
+      },
+      "question_count": 2,
+      "question_error_counts": {
+        "unanswered": 1,
+        "incomplete_working": 1
+      },
+      "questions": [
+        {
+          "question_number": "8b",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 3.0,
+          "unanswered": true,
+          "needs_review": false,
+          "error_type": "unanswered",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "8a",
+          "is_correct": false,
+          "score": 1.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "incomplete_working",
+          "knowledge_tags": [
+            "volume_of_sphere",
+            "rates_of_change"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 1,
+        "review_count": 0,
+        "score_total": 1.0,
+        "full_score_total": 5.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "volume_of_sphere": 1,
+          "rates_of_change": 1
+        },
+        "estimated_review_minutes": 6,
+        "priority_topics": [
+          {
+            "topic": "volume_of_sphere",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          },
+          {
+            "topic": "rates_of_change",
+            "subtopic": null,
+            "chapter": "",
+            "error_count": 1,
+            "key_formulas": []
+          }
+        ],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 volume_of_sphere。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "volume_of_sphere",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/09_low_clarity_demo-input.jpg",
+      "filename": "09_low_clarity_demo-input.jpg",
+      "kind": "image",
+      "size_bytes": 38349,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 40747,
+      "first_question_ms": 31371,
+      "phase_timings": {
+        "sse_first_event_ms": 436,
+        "segmentation_done_ms": 31003,
+        "first_question_ms": 31371,
+        "first_grading_after_segmentation_ms": 368,
+        "summary_after_first_question_ms": 9167
+      },
+      "question_count": 4,
+      "question_error_counts": {
+        "missing_parent_context": 3,
+        "correct": 1
+      },
+      "questions": [
+        {
+          "question_number": "a",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "c",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "d",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "(2, 1) (3, 2)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "Simultaneous Equations",
+            "Linear Equations"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 4,
+        "correct_count": 1,
+        "incorrect_count": 3,
+        "unanswered_count": 0,
+        "review_count": 3,
+        "score_total": 1.0,
+        "full_score_total": 1.0,
+        "common_error_types": [
+          "missing_parent_context"
+        ],
+        "knowledge_tags_summary": {
+          "Simultaneous Equations": 1,
+          "Linear Equations": 1
+        },
+        "estimated_review_minutes": 30,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 simultaneous_equations。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "simultaneous_equations",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/24_blank_edge_微信图片_20260407170127_45_4.jpg",
+      "filename": "24_blank_edge_微信图片_20260407170127_45_4.jpg",
+      "kind": "image",
+      "size_bytes": 14924,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 17284,
+      "first_question_ms": 16995,
+      "phase_timings": {
+        "sse_first_event_ms": 403,
+        "segmentation_done_ms": 12241,
+        "first_question_ms": 16995,
+        "first_grading_after_segmentation_ms": 4754,
+        "summary_after_first_question_ms": 29
+      },
+      "question_count": 1,
+      "question_error_counts": {
+        "unknown": 1
+      },
+      "questions": [
+        {
+          "question_number": "1",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "unknown",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 1,
+        "correct_count": 0,
+        "incorrect_count": 1,
+        "unanswered_count": 0,
+        "review_count": 1,
+        "score_total": 0.0,
+        "full_score_total": 1.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {},
+        "estimated_review_minutes": 10,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 unknown。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "unknown",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    },
+    {
+      "asset_path": "test/fixtures/jpeg_benchmark_corpus/25_normal_demo-input.jpg",
+      "filename": "25_normal_demo-input.jpg",
+      "kind": "image",
+      "size_bytes": 67876,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 28663,
+      "first_question_ms": 27948,
+      "phase_timings": {
+        "sse_first_event_ms": 489,
+        "segmentation_done_ms": 27617,
+        "first_question_ms": 27948,
+        "first_grading_after_segmentation_ms": 331,
+        "summary_after_first_question_ms": 458
+      },
+      "question_count": 3,
+      "question_error_counts": {
+        "missing_parent_context": 3
+      },
+      "questions": [
+        {
+          "question_number": "a",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "c",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "d",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "missing_parent_context",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 3,
+        "correct_count": 0,
+        "incorrect_count": 3,
+        "unanswered_count": 0,
+        "review_count": 3,
+        "score_total": 0.0,
+        "full_score_total": 0.0,
+        "common_error_types": [
+          "missing_parent_context"
+        ],
+        "knowledge_tags_summary": {},
+        "estimated_review_minutes": 30,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用快速首轮批改生成结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 missing_parent_context。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "missing_parent_context",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_113009"
+    }
+  ]
+}

@@ -1,0 +1,625 @@
+{
+  "summary": {
+    "image": "/Users/chenzhuoxin/Desktop/alevel-assistant/static/demo-input.jpg",
+    "note": "demo-input is handwriting-only; non-empty question_text is treated as likely hallucinated/invented stem.",
+    "vision_provider": "viviai",
+    "vision_model": "gemini-3-flash-preview",
+    "ocr_provider": "mathpix+local_tesseract",
+    "ocr_model": "mathpix:v3/text->tesseract:eng",
+    "old_no_ocr": {
+      "runs": 3,
+      "avg_seconds": 12.49,
+      "total_invented_question_text": 1,
+      "total_working_steps": 70,
+      "answer_sets": [
+        [
+          "C: (4,-2), r=5",
+          "Q: (7,2)",
+          "x = -1/6, y = 9/8"
+        ],
+        [
+          "C: (4, -2), r = 5\n\nQ: (7, 2)\n\nx = -1/6, y = 9/8"
+        ],
+        [
+          "C: (4, -2), r = 5",
+          "Q: (7, 2)",
+          "x = -1/6, y = 9/8"
+        ]
+      ]
+    },
+    "new_mathpix_hint": {
+      "runs": 3,
+      "avg_seconds": 10.0,
+      "total_invented_question_text": 3,
+      "total_working_steps": 67,
+      "answer_sets": [
+        [
+          "r = 5, C: (4, -2)",
+          "Q: (7, 2)",
+          "x = -1/6, y = 9/8"
+        ],
+        [
+          "C:(4,-2), r=5",
+          "Q:(7,2)",
+          "4y = -3x+4"
+        ],
+        [
+          "r = 5, C: (4, -2)",
+          "Q: (7, 2)",
+          "x = -1/6, y = 9/8"
+        ]
+      ]
+    }
+  },
+  "runs": [
+    {
+      "mode": "old_no_ocr",
+      "run": 1,
+      "seconds": 16.26,
+      "score": {
+        "count": 3,
+        "empty_question_text": 3,
+        "invented_question_text": 0,
+        "answers": [
+          "C: (4,-2), r=5",
+          "Q: (7,2)",
+          "x = -1/6, y = 9/8"
+        ],
+        "working_step_count": 23,
+        "avg_confidence": 0.9
+      },
+      "items": [
+        {
+          "question_number": "a",
+          "bbox": [
+            0,
+            0,
+            1653,
+            310
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "C: (4,-2), r=5",
+          "working_steps": [
+            "x^2-8x +y^2+4y-5=0",
+            "(x-4)^2-16 + (y+2)^2-4-5 = 0,",
+            "(x-4)^2 +(y+2)^2 = 5^2",
+            "r=5",
+            "C: (4,-2)"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.9,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "c",
+          "bbox": [
+            0,
+            310,
+            1653,
+            620
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "Q: (7,2)",
+          "working_steps": [
+            "y=2",
+            "(x-4)^2 + 16 = 25",
+            "(x-4)^2 = 9",
+            "x-4 = \\pm 3",
+            "x_1 = 7 x_2 = 1",
+            "Q: (7,2)"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.9,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "d",
+          "bbox": [
+            0,
+            620,
+            1653,
+            930
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "x = -1/6, y = 9/8",
+          "working_steps": [
+            "m = 4/3",
+            "m = -3/4",
+            "(y+2) = -3/4(x-4)",
+            "4y+8 = -3x+12",
+            "4y = -3x+4",
+            "(2,0) (3,0)",
+            "\\begin{cases} 4y = -3x+4 \\\\ 4y = 3x+5 \\end{cases}",
+            "3x+5 = -3x+4",
+            "6x+5 = 4",
+            "6x = -1",
+            "x = -1/6",
+            "y = 9/8"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.9,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        }
+      ]
+    },
+    {
+      "mode": "old_no_ocr",
+      "run": 2,
+      "seconds": 12.8,
+      "score": {
+        "count": 1,
+        "empty_question_text": 0,
+        "invented_question_text": 1,
+        "answers": [
+          "C: (4, -2), r = 5\n\nQ: (7, 2)\n\nx = -1/6, y = 9/8"
+        ],
+        "working_step_count": 24,
+        "avg_confidence": 0.95
+      },
+      "items": [
+        {
+          "question_number": "a",
+          "bbox": [
+            0,
+            0,
+            1653,
+            310
+          ],
+          "question_text": "x^2 - 8x + y^2 + 4y - 5 = 0",
+          "parent_stem": "",
+          "student_answer": "C: (4, -2), r = 5\n\nQ: (7, 2)\n\nx = -1/6, y = 9/8",
+          "working_steps": [
+            "x^2 - 8x + y^2 + 4y - 5 = 0",
+            "(x - 4)^2 - 16 + (y + 2)^2 - 4 - 5 = 0",
+            "(x - 4)^2 + (y + 2)^2 = 5^2",
+            "r = 5",
+            "C: (4, -2)",
+            "y = 2",
+            "(x - 4)^2 + 16 = 25",
+            "(x - 4)^2 = 9",
+            "x - 4 = \\pm 3",
+            "x_1 = 7 x_2 = 1",
+            "Q: (7, 2)",
+            "m = 4/3",
+            "m = -3/4",
+            "(y + 2) = -3/4(x - 4)",
+            "4y + 8 = -3x + 12",
+            "4y = -3x + 4",
+            "(2, 0) (3, 0)",
+            "4y = -3x + 4",
+            "4y = 3x + 5",
+            "3x + 5 = -3x + 4",
+            "6x + 5 = 4",
+            "6x = -1",
+            "x = -1/6",
+            "y = 9/8"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        }
+      ]
+    },
+    {
+      "mode": "old_no_ocr",
+      "run": 3,
+      "seconds": 8.4,
+      "score": {
+        "count": 3,
+        "empty_question_text": 3,
+        "invented_question_text": 0,
+        "answers": [
+          "C: (4, -2), r = 5",
+          "Q: (7, 2)",
+          "x = -1/6, y = 9/8"
+        ],
+        "working_step_count": 23,
+        "avg_confidence": 0.95
+      },
+      "items": [
+        {
+          "question_number": "a",
+          "bbox": [
+            0,
+            0,
+            1653,
+            310
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "C: (4, -2), r = 5",
+          "working_steps": [
+            "x^2 - 8x + y^2 + 4y - 5 = 0",
+            "(x-4)^2 - 16 + (y+2)^2 - 4 - 5 = 0",
+            "(x-4)^2 + (y+2)^2 = 5^2",
+            "r = 5",
+            "C: (4, -2)"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "c",
+          "bbox": [
+            0,
+            310,
+            1653,
+            620
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "Q: (7, 2)",
+          "working_steps": [
+            "y = 2",
+            "(x-4)^2 + 16 = 25",
+            "(x-4)^2 = 9",
+            "x-4 = \\pm 3",
+            "x_1 = 7, x_2 = 1",
+            "Q: (7, 2)"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "d",
+          "bbox": [
+            0,
+            620,
+            1653,
+            930
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "x = -1/6, y = 9/8",
+          "working_steps": [
+            "m = 4/3",
+            "m = -3/4",
+            "(y+2) = -3/4(x-4)",
+            "4y + 8 = -3x + 12",
+            "4y = -3x + 4",
+            "(2, 0) (3, 0)",
+            "\\begin{cases} 4y = -3x + 4 \\\\ 4y = 3x + 5 \\end{cases}",
+            "3x + 5 = -3x + 4",
+            "6x + 5 = 4",
+            "6x = -1",
+            "x = -1/6",
+            "y = 9/8"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        }
+      ]
+    },
+    {
+      "mode": "new_mathpix_hint",
+      "run": 1,
+      "seconds": 9.3,
+      "score": {
+        "count": 3,
+        "empty_question_text": 0,
+        "invented_question_text": 3,
+        "answers": [
+          "r = 5, C: (4, -2)",
+          "Q: (7, 2)",
+          "x = -1/6, y = 9/8"
+        ],
+        "working_step_count": 21,
+        "avg_confidence": 0.95
+      },
+      "items": [
+        {
+          "question_number": "a",
+          "bbox": [
+            0,
+            0,
+            1653,
+            310
+          ],
+          "question_text": "Find the centre and radius of the circle.",
+          "parent_stem": "",
+          "student_answer": "r = 5, C: (4, -2)",
+          "working_steps": [
+            "x^2 - 8x + y^2 + 4y - 5 = 0",
+            "(x-4)^2 - 16 + (y+2)^2 - 4 - 5 = 0",
+            "(x-4)^2 + (y+2)^2 = 5^2"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "c",
+          "bbox": [
+            0,
+            310,
+            1653,
+            620
+          ],
+          "question_text": "Find the coordinates of Q.",
+          "parent_stem": "",
+          "student_answer": "Q: (7, 2)",
+          "working_steps": [
+            "y = 2",
+            "(x-4)^2 + 16 = 25",
+            "(x-4)^2 = 9",
+            "x - 4 = \\pm 3",
+            "x_1 = 7  x_2 = 1"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "d",
+          "bbox": [
+            0,
+            620,
+            1653,
+            930
+          ],
+          "question_text": "Find the equation of the tangent and the intersection point.",
+          "parent_stem": "",
+          "student_answer": "x = -1/6, y = 9/8",
+          "working_steps": [
+            "m = 4/3",
+            "m = -3/4",
+            "(y+2) = -3/4(x-4)",
+            "4y+8 = -3x+12",
+            "4y = -3x+4",
+            "(2,0)  (3,0)",
+            "4y = -3x + 4",
+            "4y = 3x + 5",
+            "3x + 5 = -3x + 4",
+            "6x + 5 = 4",
+            "6x = -1",
+            "x = -1/6",
+            "y = 9/8"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        }
+      ]
+    },
+    {
+      "mode": "new_mathpix_hint",
+      "run": 2,
+      "seconds": 10.54,
+      "score": {
+        "count": 3,
+        "empty_question_text": 3,
+        "invented_question_text": 0,
+        "answers": [
+          "C:(4,-2), r=5",
+          "Q:(7,2)",
+          "4y = -3x+4"
+        ],
+        "working_step_count": 23,
+        "avg_confidence": 0.95
+      },
+      "items": [
+        {
+          "question_number": "a",
+          "bbox": [
+            0,
+            0,
+            1653,
+            310
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "C:(4,-2), r=5",
+          "working_steps": [
+            "x^2-8x+y^2+4y-5=0",
+            "(x-4)^2-16+(y+2)^2-4-5=0",
+            "(x-4)^2+(y+2)^2=5^2",
+            "r=5",
+            "C:(4,-2)"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "c",
+          "bbox": [
+            0,
+            310,
+            1653,
+            620
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "Q:(7,2)",
+          "working_steps": [
+            "y=2",
+            "(x-4)^2+16=25",
+            "(x-4)^2=9",
+            "x-4=\\pm 3",
+            "x_1=7 x_2=1",
+            "Q:(7,2)"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "d",
+          "bbox": [
+            0,
+            620,
+            1653,
+            930
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "4y = -3x+4",
+          "working_steps": [
+            "m=\\frac{4}{3}",
+            "m=-\\frac{3}{4}",
+            "(y+2)=-\\frac{3}{4}(x-4)",
+            "4y+8=-3x+12",
+            "4y=-3x+4",
+            "(2,0) (3,0)",
+            "\\begin{cases} 4y=-3x+4 \\\\ 4y=3x+5 \\\\ \\end{cases}",
+            "3x+5=-3x+4",
+            "6x+5=4",
+            "6x=-1",
+            "x=-\\frac{1}{6}",
+            "y=\\frac{9}{8}"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        }
+      ]
+    },
+    {
+      "mode": "new_mathpix_hint",
+      "run": 3,
+      "seconds": 10.15,
+      "score": {
+        "count": 3,
+        "empty_question_text": 3,
+        "invented_question_text": 0,
+        "answers": [
+          "r = 5, C: (4, -2)",
+          "Q: (7, 2)",
+          "x = -1/6, y = 9/8"
+        ],
+        "working_step_count": 23,
+        "avg_confidence": 0.95
+      },
+      "items": [
+        {
+          "question_number": "a",
+          "bbox": [
+            0,
+            0,
+            1653,
+            310
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "r = 5, C: (4, -2)",
+          "working_steps": [
+            "x^2 - 8x + y^2 + 4y - 5 = 0",
+            "(x - 4)^2 - 16 + (y + 2)^2 - 4 - 5 = 0",
+            "(x - 4)^2 + (y + 2)^2 = 5^2",
+            "r = 5",
+            "C: (4, -2)"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "c",
+          "bbox": [
+            0,
+            310,
+            1653,
+            620
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "Q: (7, 2)",
+          "working_steps": [
+            "y = 2",
+            "(x - 4)^2 + 16 = 25",
+            "(x - 4)^2 = 9",
+            "x - 4 = \\pm 3",
+            "x_1 = 7 x_2 = 1",
+            "Q: (7, 2)"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        },
+        {
+          "question_number": "d",
+          "bbox": [
+            0,
+            620,
+            1653,
+            930
+          ],
+          "question_text": "",
+          "parent_stem": "",
+          "student_answer": "x = -1/6, y = 9/8",
+          "working_steps": [
+            "m = 4/3",
+            "m = -3/4",
+            "(y + 2) = -3/4(x - 4)",
+            "4y + 8 = -3x + 12",
+            "4y = -3x + 4",
+            "(2, 0) (3, 0)",
+            "\\begin{cases} 4y = -3x + 4 \\\\ 4y = 3x + 5 \\end{cases}",
+            "3x + 5 = -3x + 4",
+            "6x + 5 = 4",
+            "6x = -1",
+            "x = -1/6",
+            "y = 9/8"
+          ],
+          "marks": 0,
+          "image_quality": "good",
+          "confidence": 0.95,
+          "page": 1,
+          "contains_diagram": false,
+          "diagram_type": null
+        }
+      ]
+    }
+  ]
+}

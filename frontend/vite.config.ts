@@ -21,6 +21,10 @@ export default defineConfig({
         target: 'http://localhost:8000',
         timeout: 120000,
       },
+      '/large-pdf': {
+        target: 'http://localhost:8000',
+        timeout: 120000,
+      },
       '/grade-question': 'http://localhost:8000',
       '/review-question': 'http://localhost:8000',
       '/explain-question': 'http://localhost:8000',
@@ -31,6 +35,7 @@ export default defineConfig({
         target: 'http://localhost:8000',
         timeout: 120000,
       },
+      '/feedback': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
     },
   },

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { AnalyzeRequest, UploadIntent } from '../types'
-import { pdfToImages } from '../utils/pdfToImages'
+import type { AnalyzeRequest, LargePdfPrepareResponse, UploadIntent } from '../types'
+import { getPdfPageCount, pdfPagesToImages, pdfToImages } from '../utils/pdfToImages'
 import { prepareUpload, trackEvent } from '../api/client'
+import { prepareLargePdf } from '../api/largePdfClient'
 import { ImageCropper } from './ImageCropper'
+import { LargePdfMode, type LargePdfAnalyzeContext } from './largePdf/LargePdfMode'
 
 type PrepareStatus = 'processing' | 'ready' | 'failed'
 
@@ -14,11 +16,13 @@ interface PrepareState {
 // Must match MAX_PAGES_PER_REQUEST in api/routes.py. Uploading more than this
 // yields "Max N pages per request." and the analyze request fails entirely.
 // Keep both ends in lockstep.
-const MAX_FILES = 16
+const MAX_FILES = 24
 const MAX_BYTES = 20 * 1024 * 1024
 // PDF file size cap is larger than single-image cap because a single PDF can
 // legitimately contain up to MAX_FILES pages worth of scans.
-const MAX_PDF_BYTES = 40 * 1024 * 1024
+const MAX_SMALL_PDF_BYTES = 40 * 1024 * 1024
+const MAX_LARGE_PDF_BYTES = 80 * 1024 * 1024
+const PREPARE_UPLOAD_CONCURRENCY = 10
 const ALLOWED_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -34,33 +38,55 @@ const INTENT_OPTIONS: Array<{
 }> = [
   {
     value: 'unknown',
-    title: '不确定，帮我识别',
-    description: '默认路径：系统先判断是否是真题，再选择批改方式',
+    title: '帮我识别',
+    description: '直接上传，系统会先判断材料类型',
   },
   {
     value: 'past_paper',
     title: 'Past Paper / 真题卷',
-    description: '可填写 paper code，优先匹配本地 mark scheme',
+    description: '可填写 paper code，优先匹配评分规则',
   },
   {
     value: 'custom_homework',
     title: '老师布置的作业',
-    description: '不强行匹配真题，直接走开放 AI 批改',
+    description: '按题目和作答直接批改',
   },
   {
     value: 'answer_pages_only',
     title: '只有答案页',
-    description: '系统会提示补充题目页或 paper code',
+    description: '缺题目时会在报告里提示',
   },
 ]
 
-const RESULT_EXPECTATIONS = [
-  '每题得分',
-  '错因定位',
-  '关键步骤反馈',
-  '薄弱知识点',
-  '下一组练习建议',
-]
+function CameraIcon({ className = 'h-6 w-6' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 7.5h3.2l1.5-2h6.6l1.5 2H20a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9.5a2 2 0 0 1 2-2Z" />
+      <circle cx="12" cy="13.5" r="3.5" />
+    </svg>
+  )
+}
+
+function ImageIcon({ className = 'h-6 w-6' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="m4 17 4.6-4.6a1.4 1.4 0 0 1 2 0L13 14.8l2.2-2.2a1.4 1.4 0 0 1 2 0L21 16.4" />
+    </svg>
+  )
+}
+
+function PdfIcon({ className = 'h-6 w-6' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M7 3h6l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+      <path d="M13 3v5h5" />
+      <path d="M8 15h8" />
+      <path d="M8 18h5" />
+    </svg>
+  )
+}
 
 function isAllowedType(file: File): boolean {
   if (ALLOWED_TYPES.has(file.type)) return true
@@ -168,7 +194,7 @@ function FilePreviewTile({
           }}
           disabled={!removable}
           title="裁剪"
-          className="absolute left-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-gray-600/85 text-white opacity-100 shadow transition hover:bg-blue-600 md:opacity-0 md:group-hover:opacity-100 disabled:opacity-40"
+          className="absolute left-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900/85 text-white opacity-100 shadow transition hover:bg-black md:opacity-0 md:group-hover:opacity-100 disabled:opacity-40"
           aria-label="裁剪此图"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
@@ -185,7 +211,7 @@ function FilePreviewTile({
         }}
         disabled={!removable}
         title="移除"
-        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-gray-600/85 text-sm leading-none text-white opacity-100 shadow transition hover:bg-red-600 md:opacity-0 md:group-hover:opacity-100 disabled:opacity-40"
+        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900/85 text-sm leading-none text-white opacity-100 shadow transition hover:bg-black md:opacity-0 md:group-hover:opacity-100 disabled:opacity-40"
         aria-label="移除此图"
       >
         ×
@@ -207,28 +233,29 @@ function ImagesPreview({
 }) {
   const [index, setIndex] = useState(0)
   const [zoomed, setZoomed] = useState(false)
-  const [urls, setUrls] = useState<string[]>([])
   const touchStartX = useRef<number | null>(null)
 
+  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
+
   useEffect(() => {
-    const u = files.map((f) => URL.createObjectURL(f))
-    setUrls(u)
     return () => {
-      for (const x of u) URL.revokeObjectURL(x)
+      for (const x of urls) URL.revokeObjectURL(x)
     }
-  }, [files])
+  }, [urls])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') setIndex((i) => Math.max(0, i - 1))
-      else if (e.key === 'ArrowRight') setIndex((i) => Math.min(files.length - 1, i + 1))
-      else if (e.key === 'Escape') onBack()
+      if (e.key === 'ArrowLeft') {
+        setZoomed(false)
+        setIndex((i) => Math.max(0, i - 1))
+      } else if (e.key === 'ArrowRight') {
+        setZoomed(false)
+        setIndex((i) => Math.min(files.length - 1, i + 1))
+      } else if (e.key === 'Escape') onBack()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [files.length, onBack])
-
-  useEffect(() => setZoomed(false), [index])
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (zoomed) return
@@ -239,6 +266,7 @@ function ImagesPreview({
     const dx = e.changedTouches[0].clientX - touchStartX.current
     touchStartX.current = null
     if (Math.abs(dx) < 40) return
+    setZoomed(false)
     if (dx < 0) setIndex((i) => Math.min(files.length - 1, i + 1))
     else setIndex((i) => Math.max(0, i - 1))
   }
@@ -251,12 +279,11 @@ function ImagesPreview({
     (n, f) => n + (prepareStates.get(f)?.status === 'processing' ? 1 : 0),
     0,
   )
-  const allReady = readyCount === files.length
-  const statusText = allReady
-    ? '识别完成，可开始批改'
-    : processingCount > 0
-      ? `识别中… ${readyCount}/${files.length}`
-      : `已识别 ${readyCount}/${files.length}`
+  const statusText = processingCount > 0
+    ? `可先开始；后台预识别 ${readyCount}/${files.length}`
+    : readyCount > 0
+      ? `已提前识别 ${readyCount}/${files.length}，可开始批改`
+      : '可开始批改，系统将在下一步统一识别'
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
@@ -284,11 +311,10 @@ function ImagesPreview({
         <button
           type="button"
           onClick={onStart}
-          disabled={!allReady}
-          title={allReady ? '开始批改' : `等待全部 ${files.length} 张识别完成`}
-          className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-blue-600 px-3 py-1.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-600/40 disabled:hover:bg-blue-600/40 sm:px-4 sm:text-sm"
+          title="开始批改"
+          className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-slate-950 px-3 py-1.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-black sm:px-4 sm:text-sm"
         >
-          {allReady ? '开始批改' : `识别中 ${readyCount}/${files.length}`}
+          开始批改
         </button>
       </header>
 
@@ -300,7 +326,10 @@ function ImagesPreview({
         {index > 0 && (
           <button
             type="button"
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            onClick={() => {
+              setZoomed(false)
+              setIndex((i) => Math.max(0, i - 1))
+            }}
             aria-label="上一张"
             className="absolute left-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 sm:flex"
           >
@@ -312,7 +341,10 @@ function ImagesPreview({
         {index < files.length - 1 && (
           <button
             type="button"
-            onClick={() => setIndex((i) => Math.min(files.length - 1, i + 1))}
+            onClick={() => {
+              setZoomed(false)
+              setIndex((i) => Math.min(files.length - 1, i + 1))
+            }}
             aria-label="下一张"
             className="absolute right-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20 sm:flex"
           >
@@ -345,17 +377,20 @@ function ImagesPreview({
               const s = prepareStates.get(f)?.status
               const dotClass =
                 s === 'ready'
-                  ? 'bg-emerald-400'
+                  ? 'bg-white'
                   : s === 'failed'
-                    ? 'bg-red-400'
+                    ? 'bg-white/50'
                     : s === 'processing'
-                      ? 'bg-blue-400 animate-pulse'
+                      ? 'bg-white/70 animate-pulse'
                       : 'bg-white/30'
               return (
                 <button
                   key={i}
                   type="button"
-                  onClick={() => setIndex(i)}
+                  onClick={() => {
+                    setZoomed(false)
+                    setIndex(i)
+                  }}
                   aria-label={`第 ${i + 1} 张`}
                   className={`h-2 w-6 rounded-full transition ${dotClass} ${
                     i === index ? 'opacity-100 ring-1 ring-white/70' : 'opacity-70'
@@ -384,6 +419,8 @@ export function UploadForm({
   const [isDragOver, setIsDragOver] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null)
+  const [largePdfSession, setLargePdfSession] = useState<LargePdfPrepareResponse | null>(null)
+  const [largePdfFile, setLargePdfFile] = useState<File | null>(null)
   const [pendingCropUrl, setPendingCropUrl] = useState<string | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -394,8 +431,8 @@ export function UploadForm({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const pdfInputRef = useRef<HTMLInputElement>(null)
-  const mobileCombinedInputRef = useRef<HTMLInputElement>(null)
   const dragDepthRef = useRef(0)
+  const prepareControllersRef = useRef<Map<File, AbortController>>(new Map())
 
   const previewUrls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
 
@@ -424,6 +461,73 @@ export function UploadForm({
     filesRef.current = files
   }, [files])
 
+  useEffect(() => {
+    const current = new Set(files)
+    for (const [file, controller] of prepareControllersRef.current.entries()) {
+      if (!current.has(file)) {
+        controller.abort()
+        prepareControllersRef.current.delete(file)
+      }
+    }
+  }, [files])
+
+  useEffect(() => {
+    return () => {
+      for (const controller of prepareControllersRef.current.values()) {
+        controller.abort()
+      }
+      prepareControllersRef.current.clear()
+    }
+  }, [])
+
+  useEffect(() => {
+    const pending = files.filter(
+      (file) => !prepareStates.has(file) && !prepareControllersRef.current.has(file),
+    )
+    if (pending.length === 0) return
+
+    setPrepareStates((state) => {
+      const next = new Map(state)
+      for (const file of pending) {
+        next.set(file, { status: 'processing' })
+      }
+      return next
+    })
+
+    let cursor = 0
+    const workerCount = Math.min(PREPARE_UPLOAD_CONCURRENCY, pending.length)
+    const runWorker = async () => {
+      while (cursor < pending.length) {
+        const file = pending[cursor]
+        cursor += 1
+        const controller = new AbortController()
+        prepareControllersRef.current.set(file, controller)
+        try {
+          const result = await prepareUpload(file, '', controller.signal)
+          if (!filesRef.current.includes(file)) continue
+          setPrepareStates((state) => {
+            const next = new Map(state)
+            next.set(file, { status: 'ready', uploadId: result.upload_id })
+            return next
+          })
+        } catch (err) {
+          if (controller.signal.aborted || !filesRef.current.includes(file)) continue
+          setPrepareStates((state) => {
+            const next = new Map(state)
+            next.set(file, { status: 'failed' })
+            return next
+          })
+        } finally {
+          prepareControllersRef.current.delete(file)
+        }
+      }
+    }
+
+    for (let i = 0; i < workerCount; i += 1) {
+      void runWorker()
+    }
+  }, [files, prepareStates])
+
   // Consume files handed off from the landing page exactly once.
   const initialFilesConsumedRef = useRef(false)
   useEffect(() => {
@@ -436,47 +540,28 @@ export function UploadForm({
   }, [initialFiles])
 
   const atCapacity = files.length >= MAX_FILES
-  const canAddMore = !atCapacity && !loading && !pdfLoading
-
-  const kickoffPrepare = (file: File) => {
-    setPrepareStates((prev) => {
-      const next = new Map(prev)
-      next.set(file, { status: 'processing' })
-      return next
-    })
-    prepareUpload(file)
-      .then((res) => {
-        setPrepareStates((prev) => {
-          const next = new Map(prev)
-          next.set(file, { status: 'ready', uploadId: res.upload_id })
-          return next
-        })
-      })
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : '未知错误'
-        setPrepareStates((prev) => {
-          const next = new Map(prev)
-          next.set(file, { status: 'failed' })
-          return next
-        })
-        setBatchMessages((prev) => [
-          ...prev,
-          `${file.name || '未命名图片'} 预识别失败：${message}`,
-        ])
-      })
-  }
+  const canAddMore = !atCapacity && !loading && !pdfLoading && !largePdfSession
 
   const addFilesFromList = (list: FileList | File[] | null) => {
     if (!list || list.length === 0) return
     const incoming = Array.from(list)
     const current = filesRef.current
     const { next, messages } = processIncomingFiles(incoming, current)
-    const added = next.slice(current.length)
-    if (added.length === 0 && messages.length === 0) return
+    const addedCount = next.length - current.length
+    trackEvent('ui_file_selected', {
+      incoming_count: incoming.length,
+      accepted_count: Math.max(0, addedCount),
+      file_count: next.length,
+      file_types: incoming.map((f) => f.type || f.name.split('.').pop()?.toLowerCase() || 'unknown'),
+      total_bytes: incoming.reduce((a, f) => a + f.size, 0),
+      upload_intent: uploadIntent,
+      at_capacity: next.length >= MAX_FILES,
+      rejected_count: Math.max(0, incoming.length - addedCount),
+    })
+    if (addedCount === 0 && messages.length === 0) return
     setFiles(next)
     filesRef.current = next
     if (messages.length > 0) setBatchMessages(messages)
-    for (const f of added) kickoffPrepare(f)
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -488,6 +573,12 @@ export function UploadForm({
     setFiles((prev) => {
       const removed = prev[index]
       if (removed) {
+        trackEvent('ui_file_removed', {
+          file_count_before: prev.length,
+          file_count_after: Math.max(0, prev.length - 1),
+          file_type: removed.type || removed.name.split('.').pop()?.toLowerCase() || 'unknown',
+          upload_intent: uploadIntent,
+        })
         setPrepareStates((s) => {
           const next = new Map(s)
           next.delete(removed)
@@ -568,7 +659,6 @@ export function UploadForm({
           return nxt
         })
       }
-      kickoffPrepare(croppedFile)
     } else {
       addFilesFromList([croppedFile])
     }
@@ -580,15 +670,9 @@ export function UploadForm({
     setEditingIndex(null)
   }
 
-  /* ---- Open preview: kick off prepareUpload for any file without a cached upload_id ---- */
+  /* ---- Open preview: local preview only; recognition happens when analysis starts ---- */
   const openPreview = () => {
     if (files.length === 0 || loading || pdfLoading) return
-    for (const f of files) {
-      const st = prepareStates.get(f)
-      if (!st || st.status === 'failed') {
-        kickoffPrepare(f)
-      }
-    }
     setShowPreview(true)
   }
 
@@ -612,55 +696,69 @@ export function UploadForm({
       upload_intent: uploadIntent,
       paper_code: paperCode.trim(),
       question_numbers: questionNumbers.trim(),
+      fast_batch: true,
     })
   }
 
-  /* ---- Mobile combined picker (image or pdf via native sheet) ---- */
-  const handleMobileCombinedSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files ?? [])
-    e.target.value = ''
-    if (selected.length === 0) return
-    const images: File[] = []
-    let pdf: File | null = null
-    for (const f of selected) {
-      const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name)
-      if (isPdf && !pdf) pdf = f
-      else if (!isPdf) images.push(f)
-    }
-    if (images.length > 0) {
-      addFilesFromList(images)
-    }
-    if (pdf) await processPdfFile(pdf)
-  }
-
   /**
-   * Convert a PDF into page images, adding each page to the form immediately
-   * as it is rendered so that prepare-upload (OCR + segmentation on the
-   * server) starts in parallel with the remaining render work. This is the
-   * difference between "AI thinks for 90 s before starting" (all prepares
-   * fire serially AFTER conversion) and "AI starts within a few seconds"
-   * (prepares already ~done by the time the last page finishes rendering).
+   * Convert a PDF into page images and add each rendered page immediately.
+   * The server now recognizes pages in one fast batch during analysis instead
+   * of pre-recognizing every image while the user is still choosing files.
    */
   const processPdfFile = async (file: File) => {
-    if (file.size > MAX_PDF_BYTES) {
-      setBatchMessages([`PDF 文件超过 ${MAX_PDF_BYTES / 1024 / 1024} MB，请压缩后重试`])
-      return
-    }
-    const room = MAX_FILES - filesRef.current.length
-    if (room <= 0) {
-      setBatchMessages([`已达到 ${MAX_FILES} 张上限，无法添加 PDF 页面`])
+    if (file.size > MAX_LARGE_PDF_BYTES) {
+      setBatchMessages([`PDF 文件超过 ${MAX_LARGE_PDF_BYTES / 1024 / 1024} MB，请压缩后重试`])
       return
     }
     setPdfLoading(true)
-    // Placeholder total; pdfToImages will call onProgress(0, realCount) immediately
-    // after loading the document, which overwrites this with the actual page count.
     setPdfProgress({ current: 0, total: 0 })
     try {
+      const pageCount = await getPdfPageCount(file)
+      const useLargePdfMode =
+        uploadIntent === 'past_paper' ||
+        pageCount > MAX_FILES ||
+        file.size > MAX_SMALL_PDF_BYTES
+      trackEvent('ui_pdf_selected', {
+        page_count: pageCount,
+        file_bytes: file.size,
+        upload_intent: uploadIntent,
+        large_pdf: useLargePdfMode,
+      })
+
+      if (useLargePdfMode) {
+        if (filesRef.current.length > 0) {
+          setBatchMessages(['请先清空当前图片，再上传完整 PDF 进入选页模式'])
+          return
+        }
+        const prepared = await prepareLargePdf(file, {
+          uploadIntent: uploadIntent === 'past_paper' ? 'full_past_paper_pdf' : uploadIntent,
+          paperCode,
+          questionNumbers,
+        })
+        setLargePdfFile(file)
+        setLargePdfSession(prepared)
+        setBatchMessages([`已读取 ${prepared.page_count} 页 PDF，已自动选中可处理页面`])
+        trackEvent('ui_large_pdf_prepare', {
+          page_count: prepared.page_count,
+          preview_count: prepared.preview_pages.length,
+          default_selected_count: prepared.preview_pages.filter((p) => p.selected_by_default).length,
+          upload_intent: uploadIntent,
+          match_confidence: prepared.paper_resolution?.match_confidence,
+          match_source: prepared.paper_resolution?.match_source,
+          grading_route: prepared.paper_resolution?.grading_route,
+          needs_confirmation: prepared.paper_resolution?.needs_user_confirmation,
+          has_paper_code: paperCode.trim().length > 0,
+        })
+        return
+      }
+
+      const room = MAX_FILES - filesRef.current.length
+      if (room <= 0) {
+        setBatchMessages([`已达到 ${MAX_FILES} 张上限，无法添加 PDF 页面`])
+        return
+      }
       const { files: pageFiles, totalPages, skipped } = await pdfToImages(file, room, {
         onPage: (pageFile) => {
-          // Add one file at a time — addFilesFromList kicks off prepare-upload
-          // synchronously for new files, so each page starts its server-side
-          // OCR immediately after rendering, overlapping the next page's render.
           addFilesFromList([pageFile])
         },
         onProgress: (current, total) => {
@@ -672,8 +770,8 @@ export function UploadForm({
         msgs.push(`PDF 共 ${totalPages} 页，因上限已跳过后 ${skipped} 页`)
       }
       setBatchMessages(msgs)
-    } catch {
-      setBatchMessages(['PDF 解析失败，请检查文件是否损坏'])
+    } catch (err) {
+      setBatchMessages([err instanceof Error ? err.message : 'PDF 解析失败，请检查文件是否损坏'])
     } finally {
       setPdfLoading(false)
       setPdfProgress(null)
@@ -697,12 +795,14 @@ export function UploadForm({
   const canSubmit = files.length > 0 && !loading && !pdfLoading
 
   const countClass =
-    files.length >= MAX_FILES ? 'font-medium text-amber-600' : 'text-slate-600'
+    files.length >= MAX_FILES ? 'font-medium text-slate-950' : 'text-slate-600'
 
   const handleResetUpload = () => {
-    if (loading || files.length === 0) return
+    if (loading || (files.length === 0 && !largePdfSession)) return
     onResetUpload?.()
     setFiles([])
+    setLargePdfSession(null)
+    setLargePdfFile(null)
     setPrepareStates(new Map())
     setBatchMessages([])
     window.setTimeout(() => {
@@ -713,6 +813,144 @@ export function UploadForm({
   const handleCancel = () => {
     if (!loading) return
     onCancelAnalysis?.()
+  }
+
+  const handleLargePdfBack = () => {
+    if (loading || pdfLoading) return
+    setLargePdfSession(null)
+    setLargePdfFile(null)
+    setBatchMessages([])
+  }
+
+  const handleLargePdfAnalyze = async (context: LargePdfAnalyzeContext) => {
+    if (!largePdfFile || loading || pdfLoading) return
+    setPdfLoading(true)
+    setPdfProgress({ current: 0, total: context.selectedPages.length })
+    try {
+      const { files: pageFiles } = await pdfPagesToImages(largePdfFile, context.selectedPages, {
+        onProgress: (current, total) => setPdfProgress({ current, total }),
+      })
+      trackEvent('ui_large_pdf_submit', {
+        pdf_id: largePdfSession?.pdf_id,
+        page_count: largePdfSession?.page_count,
+        default_selected_count: largePdfSession?.preview_pages.filter((p) => p.selected_by_default).length,
+        selected_count: context.selectedPages.length,
+        selected_pages: context.selectedPages,
+        upload_intent: context.uploadIntent,
+        has_paper_code: context.paperCode.trim().length > 0,
+        has_question_numbers: context.questionNumbers.trim().length > 0,
+      })
+      onSubmit({
+        images: pageFiles,
+        upload_intent: context.uploadIntent,
+        paper_code: context.paperCode.trim(),
+        question_numbers: context.questionNumbers.trim(),
+        fast_batch: true,
+      })
+    } catch (err) {
+      setBatchMessages([err instanceof Error ? err.message : 'PDF 页面准备失败，请重新选择页面'])
+    } finally {
+      setPdfLoading(false)
+      setPdfProgress(null)
+    }
+  }
+
+  const batchMessagesToast = batchMessages.length > 0 ? (
+    <div
+      className="fixed bottom-4 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white shadow-lg"
+      role="status"
+    >
+      <div className="space-y-1.5">
+        {batchMessages.map((msg, idx) => (
+          <p key={idx}>{msg}</p>
+        ))}
+      </div>
+    </div>
+  ) : null
+
+  const renderUploadTray = (compact = false) => {
+    const actionSize = compact ? 'h-8 w-8' : 'h-9 w-9 sm:h-10 sm:w-10'
+    const iconSize = compact ? 'h-4 w-4' : 'h-5 w-5'
+    const actionClass = `${actionSize} upload-action-button group relative inline-flex shrink-0 items-center justify-center rounded-full text-slate-950 transition duration-150 ease-out hover:bg-slate-100 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-35`
+    const tooltipClass = 'pointer-events-none absolute -top-8 left-1/2 hidden -translate-x-1/2 whitespace-nowrap text-xs font-medium text-slate-500 opacity-0 transition group-hover:opacity-100 sm:block'
+
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div
+          className={`inline-flex items-center justify-center gap-0.5 rounded-full border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.08)] ${
+            compact ? 'p-1' : 'p-1.5'
+          }`}
+          aria-label="上传入口"
+        >
+          <label className={`${actionClass} ${loading || atCapacity || pdfLoading ? 'pointer-events-none opacity-35' : 'cursor-pointer'}`}>
+            <span className={tooltipClass}>拍照</span>
+            <CameraIcon className={iconSize} />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              aria-label="拍照上传作业"
+              className="sr-only"
+              onChange={handleCameraCapture}
+              disabled={loading || atCapacity || pdfLoading}
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={openFilePicker}
+            disabled={loading || atCapacity || pdfLoading}
+            className={actionClass}
+            aria-label="选择图片"
+            title="选择图片"
+          >
+            <span className={tooltipClass}>图片</span>
+            <ImageIcon className={iconSize} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (canAddMore && !pdfLoading) pdfInputRef.current?.click()
+            }}
+            disabled={loading || atCapacity || pdfLoading}
+            className={actionClass}
+            aria-label="选择 PDF"
+            title="选择 PDF"
+          >
+            <span className={tooltipClass}>PDF</span>
+            <PdfIcon className={iconSize} />
+          </button>
+        </div>
+
+        {!compact ? (
+          <p className="text-center text-xs leading-5 text-slate-500">
+            拍一张、选图片或上传 PDF 都可以
+          </p>
+        ) : null}
+      </div>
+    )
+  }
+
+  if (largePdfSession && largePdfFile) {
+    return (
+      <>
+        <LargePdfMode
+          key={largePdfSession.pdf_id}
+          session={largePdfSession}
+          uploadIntent={uploadIntent}
+          initialPaperCode={paperCode}
+          initialQuestionNumbers={questionNumbers}
+          maxSelectedPages={MAX_FILES}
+          disabled={loading || pdfLoading}
+          progress={pdfLoading ? pdfProgress : null}
+          onBack={handleLargePdfBack}
+          onAnalyzeSelectedPages={handleLargePdfAnalyze}
+        />
+        {batchMessagesToast}
+      </>
+    )
   }
 
   return (
@@ -727,6 +965,7 @@ export function UploadForm({
           type="file"
           accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif"
           multiple
+          aria-label="选择作业图片"
           className="sr-only"
           onChange={handleFileInputChange}
           disabled={loading || atCapacity || pdfLoading}
@@ -735,104 +974,91 @@ export function UploadForm({
           ref={pdfInputRef}
           type="file"
           accept=".pdf,application/pdf"
+          aria-label="选择 PDF 文件"
           className="sr-only"
           onChange={handlePdfSelect}
           disabled={loading || atCapacity || pdfLoading}
         />
 
         <section className="space-y-4 border-b border-slate-100 pb-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Routing</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-950">先判断批改路径</h2>
-              <p className="mt-1 text-sm text-slate-500 [overflow-wrap:anywhere]">
-                系统会优先尝试 Past Paper 匹配；不确定时会回退开放 AI 批改。
-              </p>
-            </div>
-            <span className="w-fit rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
-              默认自动识别
-            </span>
-          </div>
-
-          <div
-            role="radiogroup"
-            aria-label="上传类型"
-            className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"
-          >
-            {INTENT_OPTIONS.map((option) => {
-              const selected = uploadIntent === option.value
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setUploadIntent(option.value)}
-                  className={`min-h-[5.75rem] min-w-0 rounded-lg border px-3 py-3 text-left transition ${
-                    selected
-                      ? 'border-blue-500 bg-blue-50 text-blue-950 ring-1 ring-blue-200'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="flex items-start justify-between gap-3">
-                    <span className="min-w-0 text-sm font-semibold [overflow-wrap:anywhere]">{option.title}</span>
-                    <span
-                      className={`mt-0.5 h-3 w-3 shrink-0 rounded-full border ${
-                        selected ? 'border-blue-600 bg-blue-600 shadow-[inset_0_0_0_2px_white]' : 'border-slate-300'
-                      }`}
-                      aria-hidden
-                    />
-                  </span>
-                  <span className="mt-1.5 block text-xs leading-5 text-slate-500 [overflow-wrap:anywhere]">
-                    {option.description}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {uploadIntent !== 'custom_homework' ? (
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
-              <label className="block">
-                <span className="text-xs font-medium text-slate-600">Paper code（可选）</span>
-                <input
-                  type="text"
-                  value={paperCode}
-                  onChange={(e) => setPaperCode(e.target.value)}
-                  placeholder="例如 9709/12/M/J/16"
-                  className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-slate-600">题号（可选）</span>
-                <input
-                  type="text"
-                  value={questionNumbers}
-                  onChange={(e) => setQuestionNumbers(e.target.value)}
-                  placeholder="例如 3, 4(a), 7"
-                  className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-              <p className="text-xs leading-5 text-slate-500 [overflow-wrap:anywhere] sm:col-span-2">
-                如果上传 Past Paper，包含封面页或填写 paper code 会更快、更准；不填写也可以继续上传。
-              </p>
-            </div>
-          ) : (
-            <p className="rounded-md bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500 [overflow-wrap:anywhere]">
-              自定义作业不会强行匹配真题。系统会直接根据题目和学生作答生成反馈。
-            </p>
-          )}
-
-          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
-            <span className="text-xs font-semibold text-slate-700">上传后你将获得</span>
-            {RESULT_EXPECTATIONS.map((item) => (
-              <span
-                key={item}
-                className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600"
-              >
-                {item}
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950">选择材料类型</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
+                  不确定也可以直接上传，系统会判断。
+                </p>
+              </div>
+              <span className="w-fit rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+                自动识别
               </span>
-            ))}
+            </div>
+
+            <div
+              role="radiogroup"
+              aria-label="上传类型"
+              className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"
+            >
+              {INTENT_OPTIONS.map((option) => {
+                const selected = uploadIntent === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={`${option.title}：${option.description}`}
+                    onClick={() => setUploadIntent(option.value)}
+                    className={`min-h-16 min-w-0 rounded-lg border px-3 py-3 text-left transition ${
+                      selected
+                        ? 'border-slate-950 bg-slate-50 text-slate-950 ring-1 ring-slate-950'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="flex items-start justify-between gap-3">
+                      <span className="min-w-0 text-sm font-semibold [overflow-wrap:anywhere]">{option.title}</span>
+                      <span
+                        className={`mt-0.5 h-3 w-3 shrink-0 rounded-full border ${
+                          selected ? 'border-slate-950 bg-slate-950 shadow-[inset_0_0_0_2px_white]' : 'border-slate-300'
+                        }`}
+                        aria-hidden
+                      />
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {uploadIntent !== 'custom_homework' ? (
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-600">Paper code（可选）</span>
+                  <input
+                    type="text"
+                    value={paperCode}
+                    onChange={(e) => setPaperCode(e.target.value)}
+                    placeholder="例如 9709/12/M/J/16"
+                    className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-600">题号（可选）</span>
+                  <input
+                    type="text"
+                    value={questionNumbers}
+                    onChange={(e) => setQuestionNumbers(e.target.value)}
+                    placeholder="例如 3, 4(a), 7"
+                    className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+                  />
+                </label>
+              </div>
+            ) : (
+              null
+            )}
+
+            <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              只有答案页也可以上传；缺题目时报告里会提示。
+            </div>
           </div>
         </section>
 
@@ -840,129 +1066,55 @@ export function UploadForm({
         <div>
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Upload</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-950">上传作业</h2>
+              <h2 className="text-lg font-semibold text-slate-950">上传作业</h2>
               <p className="mt-1 text-sm text-slate-500">
-                支持拍照、图片和 PDF。预识别完成后即可开始批改。
+                支持拍照、图片和 PDF。
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs text-slate-500">
               <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">最多 {MAX_FILES} 张</span>
               <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">单张 20 MB</span>
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">PDF 40 MB</span>
+              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">PDF 80 MB</span>
             </div>
           </div>
 
           {files.length === 0 ? (
-            <>
-            {/* Mobile: single combined picker (native sheet already shows image/camera/pdf) */}
-            <div className="sm:hidden">
-              <input
-                ref={mobileCombinedInputRef}
-                type="file"
-                accept="image/*,application/pdf,.pdf"
-                multiple
-                className="sr-only"
-                onChange={handleMobileCombinedSelect}
-                disabled={loading || pdfLoading}
-              />
-              <button
-                type="button"
-                onClick={() => mobileCombinedInputRef.current?.click()}
-                disabled={loading || pdfLoading}
-                className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-6 py-8 text-sm font-semibold text-blue-800 transition hover:border-blue-500 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                上传作业（图片或 PDF）
-              </button>
-              <p className="mt-2 text-center text-xs text-slate-500">
-                支持拍照 / 从相册选择 / 选择 PDF · 最多 {MAX_FILES} 张 · 单张 20 MB
-              </p>
-            </div>
-
-            {/* Desktop / tablet: drag-drop + split buttons */}
             <div
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
-              className={`hidden rounded-lg border px-6 py-10 transition sm:block ${
+              className={`rounded-lg py-5 transition ${
                 loading || pdfLoading
-                  ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-60'
+                  ? 'cursor-not-allowed opacity-60'
                   : isDragOver
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-200 bg-slate-50/70 hover:border-blue-300 hover:bg-blue-50/30'
+                    ? 'bg-slate-50 ring-1 ring-slate-950'
+                    : ''
               }`}
             >
-              {isDragOver ? (
-                <p className="text-center text-base font-medium text-blue-600">松开以上传</p>
-              ) : (
-                <>
-                  <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4">
-                    {/* Camera button */}
-                    <label
-                      className={`inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-md border border-slate-200 bg-white px-5 py-3.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 sm:w-auto ${
-                        loading || pdfLoading ? 'pointer-events-none opacity-50' : ''
-                      }`}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                        <circle cx="12" cy="13" r="4" />
-                      </svg>
-                      拍照上传
-                      <input
-                        ref={cameraInputRef}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="sr-only"
-                        onChange={handleCameraCapture}
-                        disabled={loading || atCapacity || pdfLoading}
-                      />
-                    </label>
-
-                    <span className="hidden text-xs text-slate-400 sm:block">或</span>
-                    <span className="block text-center text-xs text-slate-400 sm:hidden">或</span>
-
-                    {/* Image upload button */}
-                    <button
-                      type="button"
-                      onClick={openFilePicker}
-                      disabled={loading || pdfLoading}
-                      className="inline-flex w-full items-center justify-center gap-2.5 rounded-md border border-slate-200 bg-white px-5 py-3.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                    >
-                      {/* Image icon */}
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <polyline points="21 15 16 10 5 21" />
-                      </svg>
-                      选择图片
-                    </button>
-                  </div>
-
-                  <p className="mt-4 text-center text-xs text-slate-500">
-                    支持拖拽上传 · JPG / PNG / WebP / HEIC · 单张最大 20 MB · 最多 {MAX_FILES} 张
-                  </p>
-                </>
-              )}
+              {renderUploadTray()}
+              <p className="mt-3 text-center text-xs text-slate-500">
+                {isDragOver ? '松开以上传' : `支持拖拽图片 · 最多 ${MAX_FILES} 张 · PDF 最大 ${MAX_LARGE_PDF_BYTES / 1024 / 1024} MB`}
+              </p>
             </div>
-            </>
           ) : (
             <div
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
-              className={`rounded-lg border border-slate-200 bg-slate-50/70 p-3 transition ${isDragOver && canAddMore ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
+              className={`rounded-lg border border-slate-200 bg-slate-50/60 p-3 transition ${
+                isDragOver && canAddMore ? 'ring-2 ring-slate-950 ring-offset-2' : ''
+              }`}
             >
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className={`text-sm ${countClass}`}>已选择 {files.length}/{MAX_FILES} 张</p>
-                <p className="text-xs text-slate-500">可继续拖拽追加，或裁剪单张图片</p>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className={`text-sm ${countClass}`}>已选择 {files.length}/{MAX_FILES} 张</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    可继续添加，或点击缩略图左上角裁剪
+                  </p>
+                </div>
+                {!atCapacity ? renderUploadTray(true) : null}
               </div>
 
               <div className="flex flex-wrap items-start gap-3">
@@ -976,134 +1128,38 @@ export function UploadForm({
                     onEdit={() => handleStartCrop(i)}
                   />
                 ))}
-
-                {!atCapacity && (
-                  <div className="flex gap-2">
-                    {/* Camera add button */}
-                    <label
-                      className={`flex h-24 w-24 shrink-0 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-white text-slate-400 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 ${
-                        loading || pdfLoading ? 'pointer-events-none opacity-50' : ''
-                      }`}
-                      aria-label="拍照添加"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                        <circle cx="12" cy="13" r="4" />
-                      </svg>
-                      <span className="mt-0.5 text-[10px]">拍照</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="sr-only"
-                        onChange={handleCameraCapture}
-                        disabled={loading || atCapacity || pdfLoading}
-                      />
-                    </label>
-
-                    {/* File add button */}
-                    <button
-                      type="button"
-                      onClick={openFilePicker}
-                      disabled={loading || pdfLoading}
-                      className="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-white text-slate-400 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label="选择图片添加"
-                    >
-                      <span className="text-2xl font-light">+</span>
-                      <span className="mt-0.5 text-[10px]">图片</span>
-                    </button>
-                  </div>
-                )}
               </div>
 
               <p className="mt-3 text-xs text-slate-500">
-                {isDragOver && canAddMore ? '松开以追加图片' : '可拖拽更多图片到此处，或点击拍照 / 添加图片'}
+                {isDragOver && canAddMore ? '松开以追加图片' : '也可以拖拽更多图片到这里'}
               </p>
             </div>
           )}
         </div>
 
-        {/* ============ PDF upload section (desktop only; mobile uses combined picker) ============ */}
-        <div className={files.length === 0 ? 'hidden sm:block' : ''}>
-          <div className="relative flex items-center py-1">
-            <div className="flex-1 border-t border-slate-200" />
-            <span className="px-3 text-xs text-slate-400">或</span>
-            <div className="flex-1 border-t border-slate-200" />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (canAddMore && !pdfLoading) pdfInputRef.current?.click()
-            }}
-            disabled={loading || atCapacity || pdfLoading}
-            className={`mt-3 flex w-full items-center gap-4 rounded-lg border px-5 py-5 text-left transition ${
-              loading || atCapacity || pdfLoading
-                ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-60'
-                : 'cursor-pointer border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/40'
-            }`}
-          >
-            {/* PDF icon */}
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-red-50 text-red-500">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-7 w-7"
-              >
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="9" y1="15" x2="15" y2="15" />
-                <line x1="9" y1="11" x2="15" y2="11" />
-              </svg>
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate-900">
-                {pdfLoading
-                  ? pdfProgress
-                    ? `正在转换 PDF… ${pdfProgress.current} / ${pdfProgress.total} 页`
-                    : '正在转换 PDF 页面…'
-                  : '上传 PDF 文件'}
-              </span>
-              <span className="mt-0.5 block text-xs text-slate-500">
-                PDF 每页将自动转换为图片进行批改 · 文件最大 {MAX_PDF_BYTES / 1024 / 1024} MB
-              </span>
-            </div>
-
-            {pdfLoading && (
-              <div className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-            )}
-          </button>
-        </div>
-
         {/* ============ PDF conversion progress banner ============ */}
         {pdfLoading && pdfProgress ? (
           <div
-            className="fixed bottom-20 left-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 rounded-lg border border-blue-200 bg-white px-4 py-3 shadow-lg"
+            className="fixed bottom-20 left-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-lg"
             role="status"
             aria-live="polite"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-slate-950" />
                 </span>
                 <span className="truncate text-sm font-medium text-slate-950">
                   正在转换 PDF 页面…
                 </span>
               </div>
-              <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-blue-600">
+              <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-slate-950">
                 {pdfProgress.current} / {pdfProgress.total}
               </span>
             </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
               <div
-                className="h-full bg-blue-600 transition-[width] duration-300 ease-out"
+                className="h-full bg-slate-950 transition-[width] duration-300 ease-out"
                 style={{
                   width:
                     pdfProgress.total > 0
@@ -1113,24 +1169,13 @@ export function UploadForm({
               />
             </div>
             <p className="mt-1.5 text-[11px] text-slate-500">
-              已转好的页面在后台提前识别，批改时无需再等
+              已转好的页面会在开始批改后统一快速识别
             </p>
           </div>
         ) : null}
 
         {/* ============ Batch messages toast ============ */}
-        {batchMessages.length > 0 ? (
-          <div
-            className="fixed bottom-4 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white shadow-lg"
-            role="status"
-          >
-            <div className="space-y-1.5">
-              {batchMessages.map((msg, idx) => (
-                <p key={idx}>{msg}</p>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {batchMessagesToast}
 
         {/* ============ Action buttons ============ */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1140,7 +1185,7 @@ export function UploadForm({
               onClick={loading ? handleCancel : handleResetUpload}
               className={`inline-flex items-center justify-center rounded-md px-4 py-2.5 text-sm font-medium transition sm:min-w-[120px] ${
                 loading
-                ? 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                ? 'border border-slate-300 bg-slate-100 text-slate-950 hover:bg-slate-200'
                   : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >

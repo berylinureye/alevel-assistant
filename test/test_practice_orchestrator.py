@@ -146,6 +146,57 @@ def test_derives_topic_from_unanswered_question_tags():
     assert derive_candidate_topics(req) == ["quadratics"]
 
 
+def test_derives_precise_subtopic_then_parent_topic_from_known_taxonomy():
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="past_paper",
+            paper_num=1,
+            match_confidence="high",
+            confirmed_by_user=False,
+            grading_route="past_paper_mark_scheme",
+        ),
+        priority_topics=[],
+        knowledge_tags_summary={"equation_of_circle": 2},
+        questions=[],
+        exclude_ids=[],
+    )
+
+    assert derive_candidate_topics(req)[:2] == ["equation_of_circle", "coordinate_geometry"]
+
+
+def test_query_recommendations_passes_fine_tag_to_questionbank(monkeypatch):
+    class FakeConnection:
+        def close(self):
+            pass
+
+    topics_seen: list[list[str] | None] = []
+
+    def fake_get_random_questions(_conn, *, topics, **_kwargs):
+        topics_seen.append(topics)
+        return [_bank_question(7, topic="coordinate_geometry", paper_num=1)], 1
+
+    import api.practice_orchestrator as orchestrator
+
+    monkeypatch.setattr(orchestrator, "ensure_db", lambda: FakeConnection())
+    monkeypatch.setattr(orchestrator, "get_random_questions", fake_get_random_questions)
+    req = PracticeRecommendationRequest(
+        context=PracticeRecommendationContext(
+            upload_intent="past_paper",
+            paper_num=1,
+            match_confidence="high",
+            confirmed_by_user=True,
+            grading_route="past_paper_mark_scheme",
+        ),
+        knowledge_tags_summary={"equation_of_circle": 2},
+        count=1,
+    )
+
+    recommendations = orchestrator._query_recommendations(req, "equation_of_circle")
+
+    assert topics_seen == [["equation_of_circle"]]
+    assert recommendations[0].topic == "coordinate_geometry"
+
+
 def test_invalid_explicit_paper_returns_boundary_message_without_query(monkeypatch):
     def fail_if_queried(_req, _topic):
         raise AssertionError("invalid explicit paper must not query unscoped recommendations")

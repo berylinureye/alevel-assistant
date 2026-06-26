@@ -17,6 +17,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from api.effectiveness import compute_upload_corpus_effectiveness, latest_run_records_from_ai_events
+
 
 _DB_PATH = Path(os.environ.get("FEEDBACK_DB_PATH", "data/feedback.db"))
 _USE_MYSQL = bool(os.environ.get("MYSQL_HOST"))
@@ -147,6 +149,228 @@ def log_ai_event(event_type: str, duration_ms: int, meta: Optional[Dict[str, Any
             conn.close()
     except Exception as exc:
         print(f"[ai_events] log failed: {exc}")
+
+
+def _safe_meta(raw: object) -> Dict[str, Any]:
+    if isinstance(raw, dict):
+        return raw
+    try:
+        parsed = json.loads(str(raw or "{}"))
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
+
+
+def _rate(numerator: int | float, denominator: int | float) -> Optional[float]:
+    if not denominator:
+        return None
+    return round(float(numerator) / float(denominator), 3)
+
+
+def _pct_from_values(values: list[int], p: float) -> int:
+    if not values:
+        return 0
+    s = sorted(values)
+    i = min(len(s) - 1, int(len(s) * p))
+    return s[i]
+
+
+def _quality_issue_tags(meta: Dict[str, Any]) -> list[str]:
+    tags = meta.get("issue_tags") or meta.get("issues") or []
+    if isinstance(tags, str):
+        return [tags]
+    if isinstance(tags, list):
+        return [str(t) for t in tags if str(t).strip()]
+    return []
+
+
+def _quality_pass(value: object, threshold: float, pass_labels: set[str]) -> bool:
+    if value is True:
+        return True
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in pass_labels:
+            return True
+        try:
+            return float(normalized) >= threshold
+        except Exception:
+            return False
+    try:
+        return float(value or 0) >= threshold
+    except Exception:
+        return False
+
+
+def compute_product_metrics(
+    events: list[Dict[str, Any]],
+    feedback_items: list[Dict[str, Any]],
+    feedback_total: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Build the full learning-loop metrics used by the admin dashboard.
+
+    The input shape intentionally matches rows projected from ai_events/feedback
+    so this stays easy to unit test without a database.
+    """
+    by_type: Dict[str, list[Dict[str, Any]]] = {}
+    for event in events:
+        by_type.setdefault(str(event.get("event_type") or ""), []).append(event)
+
+    def count(event_type: str) -> int:
+        return len(by_type.get(event_type, []))
+
+    def metas(event_type: str) -> list[Dict[str, Any]]:
+        return [_safe_meta(e.get("meta")) for e in by_type.get(event_type, [])]
+
+    def durations(event_type: str) -> list[int]:
+        return [int(e.get("duration_ms") or 0) for e in by_type.get(event_type, [])]
+
+    page_views = count("ui_page_view")
+    file_selected = count("ui_file_selected")
+    upload_submits = count("ui_upload_submit") + count("ui_large_pdf_submit")
+    upload_received = count("upload_received")
+    prepare_done = count("prepare_upload_done")
+    segment_done = count("segment_done")
+    question_graded = count("question_graded")
+    result_seen = count("ui_result_seen")
+    question_expanded = count("ui_question_expanded") + count("ui_solution_expand")
+    practice_seen = count("ui_practice_recommendation_seen")
+    practice_started = count("ui_practice_started")
+    practice_submitted = count("ui_practice_answer_submitted")
+    feedback_submitted = feedback_total if feedback_total is not None else len(feedback_items)
+    next_actions = question_expanded + practice_seen + practice_started + practice_submitted + feedback_submitted
+
+    prepare_metas = metas("prepare_upload_done")
+    prepare_success = sum(1 for m in prepare_metas if m.get("status") in {None, "ready", "success"})
+    prepare_timeout = sum(1 for m in prepare_metas if m.get("ocr_status") == "timeout" or m.get("status") == "timeout")
+    large_pdf_metas = metas("large_pdf_prepare_done") + metas("ui_large_pdf_prepare")
+    large_pdf_success = sum(1 for m in large_pdf_metas if m.get("status") in {None, "ready", "success"} and not m.get("error_code"))
+    large_pdf_adjusted = sum(1 for m in metas("ui_large_pdf_submit") if m.get("default_selected_count") and m.get("selected_count") != m.get("default_selected_count"))
+
+    paper_metas = metas("paper_resolution_done")
+    high_matches = [m for m in paper_metas if m.get("confidence") == "high" or m.get("match_confidence") == "high"]
+    high_auto_mark_scheme = sum(1 for m in high_matches if m.get("route") == "past_paper_mark_scheme" or m.get("grading_route") == "past_paper_mark_scheme")
+    medium_confirm = sum(1 for m in paper_metas if (m.get("confidence") == "medium" or m.get("match_confidence") == "medium") and m.get("needs_confirmation"))
+    low_open = sum(1 for m in paper_metas if (m.get("confidence") == "low" or m.get("match_confidence") == "low") and (m.get("route") == "open_ai_grading" or m.get("grading_route") == "open_ai_grading"))
+
+    segment_metas = metas("segment_done")
+    segment_questions = sum(int(m.get("question_count") or m.get("questions") or 0) for m in segment_metas)
+    empty_answers = sum(int(m.get("empty_count") or 0) for m in segment_metas)
+    parent_missing = sum(int(m.get("parent_stem_missing_count") or 0) for m in segment_metas)
+
+    graded_metas = metas("question_graded")
+    correct_cnt = sum(1 for m in graded_metas if m.get("is_correct") is True)
+    incorrect_cnt = sum(1 for m in graded_metas if m.get("is_correct") is False)
+    needs_review_cnt = sum(1 for m in graded_metas if m.get("needs_review") is True or m.get("escalated") is True)
+    low_conf_review_cnt = sum(
+        1 for m in graded_metas
+        if (m.get("grading_confidence") is not None and float(m.get("grading_confidence") or 0) < 0.65 and (m.get("needs_review") or m.get("escalated")))
+    )
+    low_conf_cnt = sum(1 for m in graded_metas if m.get("grading_confidence") is not None and float(m.get("grading_confidence") or 0) < 0.65)
+    high_conf_wrong_cnt = sum(
+        1 for m in graded_metas
+        if m.get("is_correct") is False and m.get("grading_confidence") is not None and float(m.get("grading_confidence") or 0) >= 0.85
+    )
+    mark_scheme_cnt = sum(1 for m in graded_metas if m.get("grading_route") == "past_paper_mark_scheme")
+    open_ai_cnt = sum(1 for m in graded_metas if m.get("grading_route") == "open_ai_grading")
+    verifier_adjusted_cnt = sum(1 for m in graded_metas if m.get("verifier_adjusted"))
+
+    quality_metas = metas("feedback_quality_sampled")
+    quality_count = len(quality_metas)
+    score_accuracy_pass = sum(
+        1 for m in quality_metas
+        if _quality_pass(m.get("score_accuracy"), 0.88, {"pass", "accurate"})
+    )
+    explanation_pass = sum(
+        1 for m in quality_metas
+        if _quality_pass(m.get("explanation_quality"), 0.9, {"pass", "specific"})
+    )
+    high_conf_errors = sum(1 for m in quality_metas if m.get("high_confidence_error") is True)
+    issue_counts: Dict[str, int] = {}
+    for m in quality_metas:
+        for tag in _quality_issue_tags(m):
+            issue_counts[tag] = issue_counts.get(tag, 0) + 1
+
+    practice_submit_metas = metas("ui_practice_answer_submitted")
+    practice_correct = sum(1 for m in practice_submit_metas if (m.get("is_correct") is True))
+    practice_next = count("ui_practice_next_adjusted")
+    recommendation_served_metas = metas("practice_recommendation_served")
+    real_recommendation_cnt = sum(int(m.get("real_question_count") or 0) for m in recommendation_served_metas)
+    recommendation_cnt = sum(int(m.get("recommendation_count") or 0) for m in recommendation_served_metas)
+
+    pipeline_errors = count("pipeline_error")
+    sessions_done = count("session_done")
+    sse_cancelled = count("ui_analysis_cancelled")
+
+    north_star = {
+        "name": "有效学习闭环完成率",
+        "value": _rate(min(upload_received, result_seen, next_actions), upload_received),
+        "numerator": min(upload_received, result_seen, next_actions),
+        "denominator": upload_received,
+        "target": 0.45,
+        "alert": 0.30,
+    }
+
+    funnel = [
+        {"key": "ui_page_view", "label": "访问", "count": page_views, "rate_from_previous": None},
+        {"key": "ui_file_selected", "label": "选择文件", "count": file_selected, "rate_from_previous": _rate(file_selected, page_views)},
+        {"key": "ui_upload_submit", "label": "提交上传", "count": upload_submits, "rate_from_previous": _rate(upload_submits, file_selected or page_views)},
+        {"key": "prepare_upload_done", "label": "预处理成功", "count": prepare_success, "rate_from_previous": _rate(prepare_success, prepare_done)},
+        {"key": "segment_done", "label": "切题成功", "count": segment_done, "rate_from_previous": _rate(segment_done, upload_received)},
+        {"key": "question_graded", "label": "至少一题批改", "count": question_graded, "rate_from_previous": _rate(question_graded, segment_done)},
+        {"key": "ui_result_seen", "label": "看到结果", "count": result_seen, "rate_from_previous": _rate(result_seen, upload_received)},
+        {"key": "ui_question_expanded", "label": "查看讲解", "count": question_expanded, "rate_from_previous": _rate(question_expanded, result_seen)},
+        {"key": "ui_practice_started", "label": "开始练习", "count": practice_started, "rate_from_previous": _rate(practice_started, result_seen)},
+    ]
+
+    node_metrics = [
+        {"node": "首屏/上传入口", "metric": "上传转化率", "value": _rate(upload_submits, page_views), "target": 0.45, "alert": 0.30},
+        {"node": "上传文件选择", "metric": "文件选择成功率", "value": _rate(file_selected, page_views), "target": 0.95, "alert": 0.90},
+        {"node": "上传预处理", "metric": "预识别成功率", "value": _rate(prepare_success, prepare_done), "target": 0.95, "alert": 0.90},
+        {"node": "上传预处理", "metric": "预识别 P95 耗时", "value": _pct_from_values(durations("prepare_upload_done"), 0.95), "unit": "ms", "target": 20000, "alert": 30000},
+        {"node": "上传预处理", "metric": "超时率", "value": _rate(prepare_timeout, prepare_done), "target": 0.05, "alert": 0.10, "lower_is_better": True},
+        {"node": "Large PDF 准备", "metric": "缩略图/会话成功率", "value": _rate(large_pdf_success, len(large_pdf_metas)), "target": 0.95, "alert": 0.90},
+        {"node": "Large PDF 准备", "metric": "用户手动改选率", "value": _rate(large_pdf_adjusted, count("ui_large_pdf_submit")), "target": None, "alert": None},
+        {"node": "Past Paper 匹配", "metric": "high-confidence 自动规则批改率", "value": _rate(high_auto_mark_scheme, len(high_matches)), "target": 0.95, "alert": 0.90},
+        {"node": "Past Paper 匹配", "metric": "medium 确认触发数", "value": medium_confirm, "unit": "count", "target": None, "alert": None},
+        {"node": "Past Paper 匹配", "metric": "low 合理降级数", "value": low_open, "unit": "count", "target": None, "alert": None},
+        {"node": "OCR/切题", "metric": "题目识别数", "value": segment_questions, "unit": "count", "target": None, "alert": None},
+        {"node": "OCR/切题", "metric": "空答案识别率", "value": _rate(empty_answers, segment_questions), "target": None, "alert": None},
+        {"node": "父题上下文继承", "metric": "parent_stem 缺失率", "value": _rate(parent_missing, segment_questions), "target": 0.03, "alert": 0.08, "lower_is_better": True},
+        {"node": "初步判分", "metric": "自动判分正确题占比", "value": _rate(correct_cnt, correct_cnt + incorrect_cnt), "target": 0.88, "alert": 0.80},
+        {"node": "Mark Scheme 批改", "metric": "规则批改题量", "value": mark_scheme_cnt, "unit": "count", "target": None, "alert": None},
+        {"node": "Open AI 批改", "metric": "开放批改题量", "value": open_ai_cnt, "unit": "count", "target": None, "alert": None},
+        {"node": "确定性校验", "metric": "verifier 修正率", "value": _rate(verifier_adjusted_cnt, question_graded), "target": None, "alert": None},
+        {"node": "批改置信度", "metric": "低置信触发复核率", "value": _rate(low_conf_review_cnt, low_conf_cnt), "target": 1.0, "alert": 0.9},
+        {"node": "批改置信度", "metric": "错误高置信率", "value": _rate(high_conf_wrong_cnt + high_conf_errors, question_graded + quality_count), "target": 0.03, "alert": 0.06, "lower_is_better": True},
+        {"node": "反馈讲解", "metric": "人工抽检讲解通过率", "value": _rate(explanation_pass, quality_count), "target": 0.90, "alert": 0.80},
+        {"node": "结果页", "metric": "首题可见 P95 耗时", "value": _pct_from_values(durations("ui_result_seen"), 0.95), "unit": "ms", "target": 35000, "alert": 50000},
+        {"node": "推荐练习", "metric": "真实题推荐占比", "value": _rate(real_recommendation_cnt, recommendation_cnt), "target": 0.85, "alert": 0.75},
+        {"node": "练习提交", "metric": "练习提交成功率", "value": _rate(practice_submitted, practice_started), "target": 0.95, "alert": 0.90},
+        {"node": "练习提交", "metric": "练习正确率", "value": _rate(practice_correct, practice_submitted), "target": None, "alert": None},
+        {"node": "练习提交", "metric": "下一题继续率", "value": _rate(practice_next, practice_submitted), "target": 0.30, "alert": 0.15},
+        {"node": "用户反馈", "metric": "反馈提交率", "value": _rate(feedback_submitted, result_seen), "target": 0.05, "alert": 0.02},
+        {"node": "系统稳定性", "metric": "上传到完成率", "value": _rate(sessions_done, upload_received), "target": 0.95, "alert": 0.90},
+        {"node": "系统稳定性", "metric": "pipeline_error 率", "value": _rate(pipeline_errors, upload_received), "target": 0.05, "alert": 0.10, "lower_is_better": True},
+        {"node": "系统稳定性", "metric": "前端取消数", "value": sse_cancelled, "unit": "count", "target": None, "alert": None},
+    ]
+
+    return {
+        "north_star": north_star,
+        "learning_loop_funnel": funnel,
+        "node_metrics": node_metrics,
+        "quality_review": {
+            "sample_count": quality_count,
+            "score_accuracy_rate": _rate(score_accuracy_pass, quality_count),
+            "explanation_quality_rate": _rate(explanation_pass, quality_count),
+            "high_confidence_errors": high_conf_errors,
+            "top_issue_tags": sorted(issue_counts.items(), key=lambda x: -x[1])[:10],
+        },
+        "route_mix": {
+            "past_paper_mark_scheme": mark_scheme_cnt,
+            "open_ai_grading": open_ai_cnt,
+            "needs_review": needs_review_cnt,
+        },
+    }
 
 
 class TrackEvent(BaseModel):
@@ -344,6 +568,11 @@ def _compute_stats(now_ts: int) -> Dict[str, Any]:
         recent_events = conn.execute(
             "SELECT event_type, duration_ms, meta, created_at FROM ai_events ORDER BY id DESC LIMIT 100"
         ).fetchall()
+        effectiveness_rows = conn.execute(
+            "SELECT event_type, duration_ms, meta, created_at FROM ai_events "
+            "WHERE created_at >= ? AND event_type IN (?, ?) ORDER BY id DESC",
+            (seven_days_ago, "ui_upload_corpus_asset_result", "upload_corpus_asset_result"),
+        ).fetchall()
     finally:
         conn.close()
 
@@ -359,13 +588,6 @@ def _compute_stats(now_ts: int) -> Dict[str, Any]:
     for r in ai_rows:
         by_type.setdefault(r["event_type"], []).append(int(r["duration_ms"]))
 
-    def _pct(xs: List[int], p: float) -> int:
-        if not xs:
-            return 0
-        s = sorted(xs)
-        i = min(len(s) - 1, int(len(s) * p))
-        return s[i]
-
     recent_counts = {r["event_type"]: r["c"] for r in ai_recent_rows}
     ai_stats = [
         {
@@ -373,8 +595,8 @@ def _compute_stats(now_ts: int) -> Dict[str, Any]:
             "count": len(xs),
             "recent_7d": recent_counts.get(et, 0),
             "avg_ms": int(sum(xs) / len(xs)) if xs else 0,
-            "p50_ms": _pct(xs, 0.50),
-            "p95_ms": _pct(xs, 0.95),
+            "p50_ms": _pct_from_values(xs, 0.50),
+            "p95_ms": _pct_from_values(xs, 0.95),
             "max_ms": max(xs) if xs else 0,
         }
         for et, xs in sorted(by_type.items())
@@ -395,10 +617,7 @@ def _compute_stats(now_ts: int) -> Dict[str, Any]:
     graded_meta = []
     for r in ai_rows:
         if r["event_type"] == "question_graded":
-            try:
-                graded_meta.append(json.loads(r["meta"] or "{}"))
-            except Exception:
-                pass
+            graded_meta.append(_safe_meta(r["meta"]))
     correct_cnt = sum(1 for m in graded_meta if m.get("is_correct") is True)
     incorrect_cnt = sum(1 for m in graded_meta if m.get("is_correct") is False)
     escalated_cnt = sum(1 for m in graded_meta if m.get("escalated") is True)
@@ -417,10 +636,7 @@ def _compute_stats(now_ts: int) -> Dict[str, Any]:
         et = r["event_type"]
         if not et.startswith("ui_"):
             continue
-        try:
-            m = json.loads(r["meta"] or "{}")
-        except Exception:
-            m = {}
+        m = _safe_meta(r["meta"])
         if et == "ui_chat_reexplain":
             key = f"L{m.get('from_level','?')}→L{m.get('to_level','?')}"
             chat_reexplain_levels[key] = chat_reexplain_levels.get(key, 0) + 1
@@ -455,11 +671,45 @@ def _compute_stats(now_ts: int) -> Dict[str, Any]:
         {
             "event_type": r["event_type"],
             "duration_ms": r["duration_ms"],
-            "meta": json.loads(r["meta"] or "{}"),
+            "meta": _safe_meta(r["meta"]),
             "created_at": r["created_at"],
         }
         for r in recent_events
     ]
+    effectiveness_events = [
+        {
+            "event_type": r["event_type"],
+            "duration_ms": r["duration_ms"],
+            "meta": _safe_meta(r["meta"]),
+            "created_at": r["created_at"],
+        }
+        for r in effectiveness_rows
+    ]
+    effectiveness = compute_upload_corpus_effectiveness(latest_run_records_from_ai_events(effectiveness_events))
+    product_metrics = compute_product_metrics(
+        [
+            {
+                "event_type": r["event_type"],
+                "duration_ms": r["duration_ms"],
+                "meta": r["meta"],
+                "created_at": r.get("created_at") if hasattr(r, "get") else None,
+            }
+            for r in ai_rows
+        ],
+        [
+            {
+                "id": r["id"],
+                "user_id": r["user_id"],
+                "rating": r["rating"],
+                "comment": r["comment"],
+                "tags": json.loads(r["tags"] or "[]"),
+                "context": _safe_meta(r["context"]),
+                "created_at": r["created_at"],
+            }
+            for r in recent_feedback
+        ],
+        feedback_total=fb_total,
+    )
 
     return {
         "feedback_total": fb_total,
@@ -473,6 +723,8 @@ def _compute_stats(now_ts: int) -> Dict[str, Any]:
         "pipeline_funnel": pipeline_funnel,
         "grading_summary": grading_summary,
         "chat_summary": chat_summary,
+        "effectiveness": effectiveness,
+        "product_metrics": product_metrics,
         "recent_events": recent_events_out,
         "recent_feedback": [
             {
@@ -481,7 +733,7 @@ def _compute_stats(now_ts: int) -> Dict[str, Any]:
                 "rating": r["rating"],
                 "comment": r["comment"],
                 "tags": json.loads(r["tags"] or "[]"),
-                "context": json.loads(r["context"] or "{}"),
+                "context": _safe_meta(r["context"]),
                 "created_at": r["created_at"],
             }
             for r in recent_feedback
@@ -499,6 +751,43 @@ def _check_token(token: str) -> None:
 async def feedback_stats(token: str = Query(...)) -> dict:
     _check_token(token)
     return _compute_stats(int(time.time()))
+
+
+@feedback_router.get("/effectiveness")
+async def feedback_effectiveness(
+    token: str = Query(...),
+    days: int = Query(7, ge=1, le=90),
+) -> dict:
+    _check_token(token)
+    now_ts = int(time.time())
+    since = now_ts - days * 86400
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT event_type, duration_ms, meta, created_at FROM ai_events "
+            "WHERE created_at >= ? AND event_type IN (?, ?) ORDER BY id DESC",
+            (since, "ui_upload_corpus_asset_result", "upload_corpus_asset_result"),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    events = [
+        {
+            "event_type": r["event_type"],
+            "duration_ms": r["duration_ms"],
+            "meta": json.loads(r["meta"] or "{}"),
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+    records = latest_run_records_from_ai_events(events)
+    report = compute_upload_corpus_effectiveness(records)
+    return {
+        "days": days,
+        "event_count": len(events),
+        "records": records,
+        "effectiveness": report,
+    }
 
 
 _DASHBOARD_HTML = """<!doctype html>
@@ -557,11 +846,78 @@ _DASHBOARD_HTML = """<!doctype html>
     if (ms < 1000) return ms + ' ms';
     return (ms/1000).toFixed(2) + ' s';
   }
+  function fmtMetricValue(m) {
+    if (m == null || m.value == null) return '—';
+    if (m.unit === 'ms') return fmtMs(m.value);
+    if (m.unit === 'count') return m.value;
+    return (m.value * 100).toFixed(1) + '%';
+  }
+  function metricStatus(m) {
+    if (!m || m.value == null || m.alert == null) return 'neutral';
+    const lower = !!m.lower_is_better;
+    if (lower) return m.value > m.alert ? 'alert' : 'ok';
+    return m.value < m.alert ? 'alert' : 'ok';
+  }
+  function statusColor(status) {
+    if (status === 'alert') return '#ef4444';
+    if (status === 'ok') return '#10b981';
+    return '#6b7280';
+  }
 
   function render(data) {
     const root = document.getElementById('root');
     const rh = data.rating_hist || {};
     const maxRH = Math.max(1, ...Object.values(rh));
+    const pm = data.product_metrics || {};
+    const ns = pm.north_star || {};
+
+    const nsHtml = `
+      <div class="cards">
+        <div class="card"><div class="label">北极星</div><div class="value">${ns.value != null ? (ns.value * 100).toFixed(1) + '%' : '—'}</div><div class="sub">${escapeHtml(ns.name || '有效学习闭环完成率')} · ${ns.numerator || 0}/${ns.denominator || 0}</div></div>
+        <div class="card"><div class="label">上传到结果成功率</div><div class="value">${(() => {
+          const m = (pm.node_metrics || []).find(x => x.node === '系统稳定性' && x.metric === '上传到完成率');
+          return fmtMetricValue(m);
+        })()}</div></div>
+        <div class="card"><div class="label">首题可见 P95</div><div class="value">${(() => {
+          const m = (pm.node_metrics || []).find(x => x.node === '结果页' && x.metric === '首题可见 P95 耗时');
+          return fmtMetricValue(m);
+        })()}</div></div>
+        <div class="card"><div class="label">人工抽检分数一致</div><div class="value">${pm.quality_review?.score_accuracy_rate != null ? (pm.quality_review.score_accuracy_rate * 100).toFixed(1) + '%' : '—'}</div><div class="sub">样本 ${pm.quality_review?.sample_count || 0}</div></div>
+      </div>
+    `;
+
+    const loopFunnelHtml = (pm.learning_loop_funnel || []).length
+      ? '<table><thead><tr><th>节点</th><th>事件</th><th>次数</th><th>上一步转化</th></tr></thead><tbody>'
+        + pm.learning_loop_funnel.map(row => {
+            const max = Math.max(1, ...pm.learning_loop_funnel.map(x => x.count || 0));
+            const w = Math.max(3, Math.round((row.count || 0) / max * 100));
+            return `<tr><td>${escapeHtml(row.label)}</td><td><code>${escapeHtml(row.key)}</code></td><td><span class="bar" style="width:${w}%"></span> ${row.count || 0}</td><td>${row.rate_from_previous == null ? '—' : (row.rate_from_previous * 100).toFixed(1) + '%'}</td></tr>`;
+          }).join('')
+        + '</tbody></table>'
+      : '<div class="empty">暂无全链路漏斗数据</div>';
+
+    const nodeMetricsHtml = (pm.node_metrics || []).length
+      ? '<table><thead><tr><th>节点</th><th>指标</th><th>当前值</th><th>目标</th><th>告警线</th><th>状态</th></tr></thead><tbody>'
+        + pm.node_metrics.map(m => {
+            const st = metricStatus(m);
+            const target = m.target == null ? '—' : (m.unit === 'ms' ? fmtMs(m.target) : m.unit === 'count' ? m.target : (m.target * 100).toFixed(0) + '%');
+            const alert = m.alert == null ? '—' : (m.unit === 'ms' ? fmtMs(m.alert) : m.unit === 'count' ? m.alert : (m.alert * 100).toFixed(0) + '%');
+            return `<tr><td>${escapeHtml(m.node)}</td><td>${escapeHtml(m.metric)}</td><td>${fmtMetricValue(m)}</td><td>${target}</td><td>${alert}</td><td style="color:${statusColor(st)};font-weight:600">${st === 'alert' ? '告警' : st === 'ok' ? '正常' : '观察'}</td></tr>`;
+          }).join('')
+        + '</tbody></table>'
+      : '<div class="empty">暂无节点指标</div>';
+
+    const qualityHtml = `
+      <div class="cards">
+        <div class="card"><div class="label">抽检样本</div><div class="value">${pm.quality_review?.sample_count || 0}</div></div>
+        <div class="card"><div class="label">判分一致率</div><div class="value">${pm.quality_review?.score_accuracy_rate != null ? (pm.quality_review.score_accuracy_rate * 100).toFixed(1) + '%' : '—'}</div></div>
+        <div class="card"><div class="label">讲解具体率</div><div class="value">${pm.quality_review?.explanation_quality_rate != null ? (pm.quality_review.explanation_quality_rate * 100).toFixed(1) + '%' : '—'}</div></div>
+        <div class="card"><div class="label">错误高置信样本</div><div class="value" style="color:#ef4444">${pm.quality_review?.high_confidence_errors || 0}</div></div>
+      </div>
+      ${(pm.quality_review?.top_issue_tags || []).length ? '<table style="margin-top:10px"><thead><tr><th>抽检问题标签</th><th>次数</th></tr></thead><tbody>'
+        + pm.quality_review.top_issue_tags.map(([t,n]) => `<tr><td>${escapeHtml(t)}</td><td>${n}</td></tr>`).join('')
+        + '</tbody></table>' : ''}
+    `;
 
     const tagsHtml = (data.top_tags || []).length
       ? '<table><thead><tr><th>标签</th><th style="width:60%">出现</th></tr></thead><tbody>'
@@ -638,6 +994,28 @@ _DASHBOARD_HTML = """<!doctype html>
         + '</tbody></table>' : ''}
     `;
 
+    // 上传语料库效果评测
+    const eff = data.effectiveness || {};
+    const effMetrics = eff.metrics || {};
+    const effMetricRows = Object.entries(effMetrics);
+    const effColor = eff.overall_status === 'pass' ? '#10b981' : eff.overall_status === 'fail' ? '#ef4444' : '#9ca3af';
+    const effHtml = `
+      <div class="cards">
+        <div class="card"><div class="label">综合分</div><div class="value" style="color:${effColor}">${eff.overall_score ?? '—'}</div><div class="sub">${escapeHtml(eff.overall_status || 'insufficient_data')}</div></div>
+        <div class="card"><div class="label">记录数</div><div class="value">${eff.summary?.records ?? 0}</div><div class="sub">最近 7 天上传回放</div></div>
+        <div class="card"><div class="label">成功记录</div><div class="value">${eff.summary?.successful_records ?? 0}</div></div>
+        <div class="card"><div class="label">失败指标</div><div class="value" style="color:#ef4444">${(eff.failures || []).length}</div></div>
+      </div>
+      ${effMetricRows.length ? '<table style="margin-top:10px"><thead><tr><th>指标</th><th>状态</th><th>当前值</th><th>目标</th><th>样本数</th></tr></thead><tbody>'
+        + effMetricRows.map(([key, m]) => {
+            const color = m.status === 'pass' ? '#10b981' : m.status === 'fail' ? '#ef4444' : '#9ca3af';
+            const value = m.value == null ? '—' : (m.unit === 'ms' ? fmtMs(m.value) : (m.value * 100).toFixed(1) + '%');
+            const target = m.target == null ? '—' : (m.unit === 'ms' ? fmtMs(m.target) : (m.target * 100).toFixed(0) + '%');
+            return `<tr><td>${escapeHtml(m.label || key)}<br><code>${escapeHtml(key)}</code></td><td style="color:${color};font-weight:600">${escapeHtml(m.status)}</td><td>${value}</td><td>${target}</td><td>${m.sample_size || 0}</td></tr>`;
+          }).join('')
+        + '</tbody></table>' : '<div class="empty">还没有上传语料库评测数据。运行 <code>python scripts/evaluate_upload_corpus.py --track-events</code> 后会出现在这里。</div>'}
+    `;
+
     // 事件流（最近 100 条）
     const evHtml = (data.recent_events || []).length
       ? '<table><thead><tr><th>时间</th><th>事件</th><th>时长</th><th>meta</th></tr></thead><tbody>'
@@ -680,6 +1058,18 @@ _DASHBOARD_HTML = """<!doctype html>
         <div class="card"><div class="label">差评数 (≤3★)</div><div class="value" style="color:#ef4444">${data.low_rating_count}</div><div class="sub">${data.low_rating_ratio != null ? (data.low_rating_ratio*100).toFixed(1)+'%' : '—'}</div></div>
       </div>
 
+      <h2>全链路北极星</h2>
+      ${nsHtml}
+
+      <h2>有效学习闭环漏斗</h2>
+      ${loopFunnelHtml}
+
+      <h2>节点测试指标</h2>
+      ${nodeMetricsHtml}
+
+      <h2>批改讲解质量抽检</h2>
+      ${qualityHtml}
+
       ${rhHtml ? `<h2>评分分布</h2><table><tbody>${rhHtml}</tbody></table>` : ''}
 
       <h2>标签 TOP</h2>
@@ -693,6 +1083,9 @@ _DASHBOARD_HTML = """<!doctype html>
 
       <h2>聊天追问行为</h2>
       ${chatHtml}
+
+      <h2>上传语料库效果评测</h2>
+      ${effHtml}
 
       <h2>AI 调用时长（后端模型）</h2>
       ${aiHtml}

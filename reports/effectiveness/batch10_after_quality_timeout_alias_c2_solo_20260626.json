@@ -1,0 +1,650 @@
+{
+  "status": "success",
+  "generated_at": "2026-06-26 10:51:58",
+  "input_dir": "/tmp/alevel-bench-10jpeg",
+  "settings": {
+    "api_base": "http://127.0.0.1:8014",
+    "repeat": 1,
+    "max_concurrency": 1,
+    "tracked_events": true
+  },
+  "asset_summary": {
+    "count": 10,
+    "by_kind": {
+      "image": 10
+    },
+    "assets": [
+      {
+        "path": "/tmp/alevel-bench-10jpeg/06-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/07-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/08-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/09-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/1-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/10-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/2-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/3-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/4-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "/tmp/alevel-bench-10jpeg/5-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      }
+    ]
+  },
+  "effectiveness": {
+    "overall_score": 77,
+    "overall_status": "fail",
+    "metrics": {
+      "upload_success_rate": {
+        "label": "上传成功率",
+        "value": 1.0,
+        "target": 0.95,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "parse_success_rate": {
+        "label": "可解析率",
+        "value": 1.0,
+        "target": 0.9,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "readable_question_rate": {
+        "label": "可读题目率",
+        "value": 0.9474,
+        "target": 0.85,
+        "status": "pass",
+        "sample_size": 19,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "image_end_to_end_p95_ms": {
+        "label": "图片端到端 P95",
+        "value": null,
+        "target": 60000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "pdf_end_to_end_p95_ms": {
+        "label": "PDF 端到端 P95",
+        "value": null,
+        "target": 90000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "first_question_p95_ms": {
+        "label": "首题返回 P95",
+        "value": 10652,
+        "target": 30000,
+        "status": "pass",
+        "sample_size": 1,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "ten_image_batch_p95_ms": {
+        "label": "10 图一次上传 P95",
+        "value": 202397,
+        "target": 60000,
+        "status": "fail",
+        "sample_size": 1,
+        "unit": "ms",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "recognition_timeout_count": {
+        "label": "识别超时题数",
+        "value": 1,
+        "target": 0,
+        "status": "fail",
+        "sample_size": 19,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "unreadable_question_count": {
+        "label": "不可读题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 19,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "fast_batch_timeout_count": {
+        "label": "快批超时题数",
+        "value": 1,
+        "target": 0,
+        "status": "fail",
+        "sample_size": 19,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "expected_question_recall_rate": {
+        "label": "标注题目召回率",
+        "value": null,
+        "target": 0.95,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "expected_question_order_rate": {
+        "label": "标注题目顺序一致率",
+        "value": null,
+        "target": 0.95,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "marked_correctness_match_rate": {
+        "label": "标注正确性一致率",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "marked_score_match_rate": {
+        "label": "标注精确分数一致率",
+        "value": null,
+        "target": 0.85,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_relevance_rate": {
+        "label": "标注推荐相关性",
+        "value": null,
+        "target": 0.9,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_real_hit_rate": {
+        "label": "推荐真实题库命中率",
+        "value": null,
+        "target": 1.0,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "paper_compliance_rate": {
+        "label": "Paper 合规率",
+        "value": null,
+        "target": 1.0,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "repeat_question_count_stability": {
+        "label": "重复运行题目数稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "repeat_recommendation_mode_stability": {
+        "label": "重复运行推荐模式稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      }
+    },
+    "failures": [
+      {
+        "metric": "ten_image_batch_p95_ms",
+        "label": "10 图一次上传 P95",
+        "value": 202397,
+        "target": 60000
+      },
+      {
+        "metric": "recognition_timeout_count",
+        "label": "识别超时题数",
+        "value": 1,
+        "target": 0
+      },
+      {
+        "metric": "fast_batch_timeout_count",
+        "label": "快批超时题数",
+        "value": 1,
+        "target": 0
+      }
+    ],
+    "summary": {
+      "records": 1,
+      "successful_records": 1,
+      "parsed_records": 1,
+      "asset_count": 1,
+      "question_error_counts": {
+        "recognition_timeout": 1,
+        "correct": 17,
+        "fast_batch_timeout": 1
+      }
+    }
+  },
+  "records": [
+    {
+      "asset_path": "prepared-batch:/tmp/alevel-bench-10jpeg/06-phone.jpeg,/tmp/alevel-bench-10jpeg/07-phone.jpeg,/tmp/alevel-bench-10jpeg/08-phone.jpeg,/tmp/alevel-bench-10jpeg/09-phone.jpeg,/tmp/alevel-bench-10jpeg/1-small.jpg,/tmp/alevel-bench-10jpeg/10-phone.jpeg,/tmp/alevel-bench-10jpeg/2-small.jpg,/tmp/alevel-bench-10jpeg/3-small.jpg,/tmp/alevel-bench-10jpeg/4-small.jpg,/tmp/alevel-bench-10jpeg/5-small.jpg",
+      "filename": "prepared_batch_10_images",
+      "filenames": [
+        "06-phone.jpeg",
+        "07-phone.jpeg",
+        "08-phone.jpeg",
+        "09-phone.jpeg",
+        "1-small.jpg",
+        "10-phone.jpeg",
+        "2-small.jpg",
+        "3-small.jpg",
+        "4-small.jpg",
+        "5-small.jpg"
+      ],
+      "kind": "image_batch_prepared",
+      "batch_size": 10,
+      "size_bytes": 11398010,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 202397,
+      "prepare_elapsed_ms": 109986,
+      "analyze_elapsed_ms": 92409,
+      "first_question_ms": 10652,
+      "question_count": 19,
+      "question_error_counts": {
+        "recognition_timeout": 1,
+        "correct": 17,
+        "fast_batch_timeout": 1
+      },
+      "prepared": [
+        {
+          "filename": "06-phone.jpeg",
+          "upload_id": "6177ced6a046468586b670ebe05efd05",
+          "question_count": 2
+        },
+        {
+          "filename": "07-phone.jpeg",
+          "upload_id": "b0ef379f120d4f42bdeb94886b55b9c6",
+          "question_count": 2
+        },
+        {
+          "filename": "08-phone.jpeg",
+          "upload_id": "f554f3ce8b55441a8337e85f5e23898d",
+          "question_count": 1
+        },
+        {
+          "filename": "09-phone.jpeg",
+          "upload_id": "dfc0de8a6ec74829a4f41db84e701f2f",
+          "question_count": 2
+        },
+        {
+          "filename": "1-small.jpg",
+          "upload_id": "a0c12bef120f4228b5aa42f09aa76727",
+          "question_count": 2
+        },
+        {
+          "filename": "10-phone.jpeg",
+          "upload_id": "e23cb094d16e4810932db1f6ad2cbd1f",
+          "question_count": 2
+        },
+        {
+          "filename": "2-small.jpg",
+          "upload_id": "40131638a29d4f88b58f43d46abd4632",
+          "question_count": 2
+        },
+        {
+          "filename": "3-small.jpg",
+          "upload_id": "ddfad55d4cd74a14ada8b28985f9bcaf",
+          "question_count": 2
+        },
+        {
+          "filename": "4-small.jpg",
+          "upload_id": "1d13a3ef633a4fb8abb0705e09816258",
+          "question_count": 2
+        },
+        {
+          "filename": "5-small.jpg",
+          "upload_id": "ba54b7eb3a494712a42cf94d1c0187c6",
+          "question_count": 2
+        }
+      ],
+      "prepare_concurrency": 2,
+      "fast_batch": true,
+      "questions": [
+        {
+          "question_number": "本次上传",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 0.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "recognition_timeout",
+          "knowledge_tags": []
+        },
+        {
+          "question_number": "11(i)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11b",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "inverse_functions",
+            "graph_transformations"
+          ]
+        },
+        {
+          "question_number": "11(i)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11b",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "inverse_functions"
+          ]
+        },
+        {
+          "question_number": "11(i)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11(i)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11(b)",
+          "is_correct": true,
+          "score": 1.0,
+          "full_score": 1.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "functions",
+            "graphs"
+          ]
+        },
+        {
+          "question_number": "11(ii)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11(b)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "inverse_function",
+            "reflection"
+          ]
+        },
+        {
+          "question_number": "11(a)",
+          "is_correct": true,
+          "score": 5.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "transformations",
+            "translation",
+            "stretch"
+          ]
+        },
+        {
+          "question_number": "11a",
+          "is_correct": true,
+          "score": 5.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "graph_transformations"
+          ]
+        },
+        {
+          "question_number": "11(ii)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11(a)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "graph_transformations"
+          ]
+        },
+        {
+          "question_number": "11(ii)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation"
+          ]
+        },
+        {
+          "question_number": "11(ii)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "sigma_notation",
+            "standard_deviation"
+          ]
+        },
+        {
+          "question_number": "11b",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "inverse_functions"
+          ]
+        },
+        {
+          "question_number": "11a",
+          "is_correct": true,
+          "score": 5.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "graph_transformations"
+          ]
+        },
+        {
+          "question_number": "11a",
+          "is_correct": false,
+          "score": 0.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": true,
+          "error_type": "fast_batch_timeout",
+          "knowledge_tags": []
+        }
+      ],
+      "summary": {
+        "total_questions": 19,
+        "correct_count": 17,
+        "incorrect_count": 2,
+        "unanswered_count": 0,
+        "review_count": 2,
+        "score_total": 52.0,
+        "full_score_total": 57.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "sigma_notation": 8,
+          "inverse_functions": 3,
+          "graph_transformations": 4,
+          "functions": 1,
+          "graphs": 1,
+          "inverse_function": 1,
+          "reflection": 1,
+          "transformations": 1,
+          "translation": 1,
+          "stretch": 1,
+          "standard_deviation": 1
+        },
+        "estimated_review_minutes": 20,
+        "priority_topics": [],
+        "overall_teacher_comment": "已使用大批量快评模式生成首轮结果；重点复查低置信和错题。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 sigma_notation。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "sigma_notation",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260626_104835"
+    }
+  ]
+}

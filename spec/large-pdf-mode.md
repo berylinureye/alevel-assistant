@@ -13,12 +13,12 @@
 ## Current State
 
 - `frontend/src/components/UploadForm.tsx` converts every selected PDF page into images client-side through `frontend/src/utils/pdfToImages.ts`.
-- `UploadForm.tsx` enforces `MAX_FILES = 16`.
-- `api/routes.py` enforces `MAX_PAGES_PER_REQUEST = 16` for `/analyze-homework` and `/analyze-homework-stream`.
+- `UploadForm.tsx` enforces `MAX_FILES = 24`.
+- `api/routes.py` enforces `MAX_PAGES_PER_REQUEST = 24` for `/analyze-homework` and `/analyze-homework-stream`.
 - `/prepare-upload` accepts one image and caches extraction through `api/upload_cache.py`.
 - Past paper routing already accepts `upload_intent`, `paper_code`, and `question_numbers` through `api/paper_resolver.py`.
 
-Large PDF Mode must not increase `MAX_FILES` or `MAX_PAGES_PER_REQUEST` for the normal image path.
+Large PDF Mode should not force students to choose pages before they can proceed. It should auto-select up to the single-run budget and let users remove cover, blank, or irrelevant pages only when needed.
 
 ## File Structure
 
@@ -104,32 +104,32 @@ Streams existing event types:
 
 Rules:
 
-- `selected_pages.length` must be between 1 and 16. This preserves the current processing budget while allowing the original PDF to be larger.
+- `selected_pages.length` must be between 1 and 24. This preserves a bounded processing budget while allowing the original PDF to be larger.
 - Convert only selected pages to temporary images.
 - Pass `upload_intent="full_past_paper_pdf"`, `paper_code`, and `question_numbers` to `resolve_paper_context`.
 - Emit an initial `agent_step` with title `选择 PDF 页面` and summary such as `已从 17 页 PDF 中选择 3 页进入批改。`
 - If the PDF session expired, return `404 PDF_SESSION_EXPIRED`.
-- If selected pages exceed 16, return `400 TOO_MANY_SELECTED_PAGES`.
+- If selected pages exceed 24, return `400 TOO_MANY_SELECTED_PAGES`.
 
 ## Frontend Flow
 
 1. User selects a PDF.
-2. If the PDF has 16 pages or fewer and upload intent is not `Past Paper / 真题卷`, keep the existing client-side conversion path.
-3. If the PDF has more than 16 pages or upload intent is `Past Paper / 真题卷`, enter Large PDF Mode.
+2. If the PDF has 24 pages or fewer and upload intent is not `Past Paper / 真题卷`, keep the existing client-side conversion path.
+3. If the PDF has more than 24 pages or upload intent is `Past Paper / 真题卷`, enter Large PDF Mode.
 4. Large PDF Mode calls `/large-pdf/prepare`.
 5. UI shows:
    - paper match/manual paper code card;
    - page thumbnails;
-   - selectable question/page list;
-   - selected count, max 16 pages for one grading run.
-6. User selects pages/questions and starts grading.
+   - auto-selected page thumbnails;
+   - selected count, max 24 pages for one grading run.
+6. User starts grading directly or removes irrelevant pages/questions first.
 7. Frontend consumes `/large-pdf/{pdf_id}/analyze-stream` with the same stream parser callbacks used by `analyzeHomeworkStreaming`.
 
 Student-facing copy:
 
-- `已读取整套 PDF。请选择这次要批改的题目或页面。`
-- `完整 PDF 不需要拆成图片；系统只会处理你选择的页面。`
-- `一次最多批改 16 页；下一轮可以继续选择其他页面。`
+- `已读取整套 PDF。系统已自动选中可处理页面。`
+- `完整 PDF 不需要拆成图片；你可以直接开始，也可以取消封面、空白页或无关页面。`
+- `一次最多批改 24 页；下一轮可以继续处理更多页面。`
 
 ## Milestones
 
@@ -193,7 +193,7 @@ Rollback point:
 
 - [ ] Add typed API calls for `prepareLargePdf` and `analyzeLargePdfStreaming`.
 - [ ] Add `LargePdfMode` state to `UploadForm.tsx` without changing image upload behavior.
-- [ ] Show page thumbnails with selected count `已选择 N/16 页`.
+- [ ] Show page thumbnails with selected count `已选择 N/24 页`.
 - [ ] Show manual paper code and question number inputs in the Large PDF panel.
 - [ ] Run visual acceptance:
 
@@ -218,14 +218,14 @@ Rollback point:
 - Modify `frontend/src/api/largePdfClient.ts`
 - Modify `frontend/src/components/largePdf/LargePdfMode.tsx`
 
-- [ ] Add selected-page validation: 1-16 pages only.
+- [ ] Add selected-page validation: 1-24 pages only.
 - [ ] Convert selected pages into temporary images.
 - [ ] Call `run_pipeline_streaming` with selected images and existing paper context.
 - [ ] Emit `agent_step` events for PDF intake, paper resolution, selected-page processing, and route choice.
 - [ ] Test selected-page limit:
 
 ```bash
-pytest test/test_large_pdf_mode.py::test_large_pdf_analyze_rejects_more_than_16_selected_pages -q
+pytest test/test_large_pdf_mode.py::test_large_pdf_analyze_rejects_more_than_24_selected_pages -q
 ```
 
 Expected: `400 TOO_MANY_SELECTED_PAGES`.
@@ -233,7 +233,7 @@ Expected: `400 TOO_MANY_SELECTED_PAGES`.
 - [ ] Test existing image limit still holds:
 
 ```bash
-pytest test/test_large_pdf_mode.py::test_existing_image_stream_limit_still_rejects_more_than_16_files -q
+pytest test/test_large_pdf_mode.py::test_existing_image_stream_limit_still_rejects_more_than_24_files -q
 ```
 
 Expected: current `/analyze-homework-stream` behavior remains unchanged.
@@ -291,9 +291,9 @@ Rollback point:
 - [ ] PDF intake is separate from image upload.
 - [ ] Page thumbnailing works before grading starts.
 - [ ] Paper recognition/manual paper code feeds the existing Past Paper resolver.
-- [ ] User can select pages/questions before grading.
+- [ ] Large PDF mode auto-selects processable pages before grading and allows optional page removal.
 - [ ] Only selected pages enter `run_pipeline_streaming`.
-- [ ] Current `MAX_FILES = 16` and `MAX_PAGES_PER_REQUEST = 16` remain unchanged for non-Large-PDF uploads.
-- [ ] More than 16 selected PDF pages is rejected with a clear error.
+- [ ] Current `MAX_FILES = 24` and `MAX_PAGES_PER_REQUEST = 24` remain in sync.
+- [ ] More than 24 selected PDF pages is rejected with a clear error.
 - [ ] Large PDF UI has desktop and mobile screenshot evidence.
 - [ ] Feature can be disabled without breaking existing image/PDF upload.

@@ -8,15 +8,24 @@ ModelClient 抽象层 + AnthropicCompatClient 实现 + ModelRegistry 工厂
 """
 from __future__ import annotations
 
+import base64
+import io
+import logging
 import os
 import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Protocol, runtime_checkable
 
 import anthropic
+import httpx
 import openai
+from PIL import Image
+
+
+_log = logging.getLogger("router.models")
 
 
 def _as_openai_base_url(base_url: str) -> str:
@@ -61,6 +70,7 @@ class ModelRequest:
     images:      list[str] = field(default_factory=list)  # base64 字符串列表
     max_tokens:  int = 1024
     temperature: float = 0.0  # 批改/分类用 0.0（确定性），feedback 可用 0.3
+    max_retries: int = 2
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +161,7 @@ class AnthropicCompatClient:
         # Fallback: if no explicit text block found, take first block
         if not text and response.content:
             text = getattr(response.content[0], "text", "")
-        if not text.strip() and _attempt < 2:
+        if not text.strip() and _attempt < max(0, request.max_retries):
             return self.call(request, _attempt=_attempt + 1)
         return text
 
@@ -213,7 +223,7 @@ class OpenAICompatClient:
             reasoning = getattr(msg, "reasoning_content", None) or ""
             if reasoning.strip():
                 text = reasoning
-        if not text.strip() and _attempt < 2:
+        if not text.strip() and _attempt < max(0, request.max_retries):
             return self.call(request, _attempt=_attempt + 1)
         return text
 
@@ -241,9 +251,180 @@ class OpenAICompatClient:
                 continue
 
 
+class MathpixOCRClient:
+    """Mathpix Convert API adapter for pure OCR text extraction."""
+
+    role = ModelRole.ocr
+    provider = "mathpix"
+
+    def __init__(
+        self,
+        *,
+        app_id: str,
+        app_key: str,
+        base_url: str = "https://api.mathpix.com",
+        timeout: float = 15.0,
+    ) -> None:
+        self.app_id = app_id.strip()
+        self.app_key = app_key.strip()
+        self.base_url = base_url.rstrip("/")
+        self.timeout = max(0.1, float(timeout or 15.0))
+        self.model_id = "mathpix:v3/text"
+
+    def supports_images(self) -> bool:
+        return True
+
+    def call(self, request: ModelRequest) -> str:
+        if not request.images:
+            return ""
+        texts: list[str] = []
+        for b64 in request.images:
+            text = self._ocr_b64(b64)
+            if text.strip():
+                texts.append(text.strip())
+        return "\n\n".join(texts)
+
+    def _ocr_b64(self, b64: str) -> str:
+        payload = {
+            "src": f"data:image/jpeg;base64,{b64}",
+            "math_inline_delimiters": ["$", "$"],
+            "rm_spaces": True,
+        }
+        headers = {
+            "app_id": self.app_id,
+            "app_key": self.app_key,
+            "Content-Type": "application/json",
+        }
+        try:
+            response = httpx.post(
+                f"{self.base_url}/v3/text",
+                json=payload,
+                headers=headers,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            _log.warning("Mathpix OCR failed: %s", exc)
+            return ""
+
+        if data.get("error"):
+            _log.warning("Mathpix OCR returned error: %s", data.get("error"))
+            return ""
+        return str(data.get("text") or data.get("latex_styled") or "").strip()
+
+
+class LocalOCRClient:
+    """Small local OCR adapter used as a non-blocking fallback for page probes."""
+
+    role = ModelRole.ocr
+    provider = "local_tesseract"
+
+    def __init__(
+        self,
+        *,
+        lang: str = "eng",
+        timeout: float = 3.0,
+        config: str = "",
+    ) -> None:
+        self.lang = lang or "eng"
+        self.timeout = max(0.1, float(timeout or 3.0))
+        self.config = config
+        self.model_id = f"tesseract:{self.lang}"
+
+    def supports_images(self) -> bool:
+        return True
+
+    @classmethod
+    def is_available(cls) -> bool:
+        try:
+            import pytesseract
+
+            pytesseract.get_tesseract_version()
+            return True
+        except Exception as exc:
+            _log.info("local OCR disabled; tesseract unavailable: %s", exc)
+            return False
+
+    def call(self, request: ModelRequest) -> str:
+        if not request.images:
+            return ""
+        texts: list[str] = []
+        for b64 in request.images:
+            text = self._ocr_b64(b64)
+            if text.strip():
+                texts.append(text.strip())
+        return "\n\n".join(texts)
+
+    def _ocr_b64(self, b64: str) -> str:
+        try:
+            raw = base64.b64decode(b64)
+            image = Image.open(io.BytesIO(raw)).convert("RGB")
+        except Exception as exc:
+            _log.warning("local OCR image decode failed: %s", exc)
+            return ""
+
+        pool = ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(self._image_to_string, image)
+        try:
+            return future.result(timeout=self.timeout) or ""
+        except FutureTimeoutError:
+            _log.warning("local OCR timed out after %.1fs", self.timeout)
+            future.cancel()
+            return ""
+        except Exception as exc:
+            _log.warning("local OCR failed: %s", exc)
+            return ""
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
+
+    def _image_to_string(self, image: Image.Image) -> str:
+        import pytesseract
+
+        return pytesseract.image_to_string(
+            image,
+            lang=self.lang,
+            config=self.config,
+        )
+
+
+class FallbackOCRClient:
+    """Try a primary OCR client first, then a secondary OCR client if needed."""
+
+    role = ModelRole.ocr
+
+    def __init__(self, primary: ModelClient, fallback: ModelClient) -> None:
+        self.primary = primary
+        self.fallback = fallback
+        self.provider = f"{primary.provider}+{fallback.provider}"
+        self.model_id = f"{primary.model_id}->{fallback.model_id}"
+
+    def supports_images(self) -> bool:
+        return self.primary.supports_images() or self.fallback.supports_images()
+
+    def call(self, request: ModelRequest) -> str:
+        try:
+            text = self.primary.call(request)
+        except Exception as exc:
+            _log.warning("%s OCR failed before fallback: %s", self.primary.provider, exc)
+            text = ""
+        if text.strip():
+            return text
+        try:
+            return self.fallback.call(request)
+        except Exception as exc:
+            _log.warning("%s OCR fallback failed: %s", self.fallback.provider, exc)
+            return ""
+
+
 # ---------------------------------------------------------------------------
 # ModelRegistry 工厂
 # ---------------------------------------------------------------------------
+
+def _env_flag(name: str, default: str = "0") -> bool:
+    value = os.environ.get(name, default).strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
 
 def _build_client(
     role: ModelRole,
@@ -268,6 +449,28 @@ def _build_client(
         base_url=base_url, model_id=model_id,
         provider=provider, role=role, api_key=api_key,
     )
+
+
+def _build_local_ocr_from_env() -> ModelClient | None:
+    if not _env_flag("LOCAL_OCR_ENABLED"):
+        return None
+
+    local_provider = os.environ.get("LOCAL_OCR_PROVIDER", "tesseract").strip().lower()
+    if local_provider != "tesseract":
+        _log.warning("unsupported LOCAL_OCR_PROVIDER=%r; continuing without local OCR", local_provider)
+        return None
+
+    timeout = float(os.environ.get("LOCAL_OCR_TIMEOUT_SECONDS", "3"))
+    local_ocr = LocalOCRClient(
+        lang=os.environ.get("LOCAL_OCR_LANG", "eng"),
+        timeout=timeout,
+        config=os.environ.get("LOCAL_OCR_CONFIG", ""),
+    )
+    if local_ocr.is_available():
+        return local_ocr
+
+    _log.info("LOCAL_OCR_ENABLED=1 but local OCR is unavailable; continuing without OCR")
+    return None
 
 
 def build_registry() -> dict[ModelRole, ModelClient]:
@@ -334,14 +537,42 @@ def build_registry() -> dict[ModelRole, ModelClient]:
     if ModelRole.vision not in registry:
         registry[ModelRole.vision] = registry[ModelRole.base]
 
-    # --- OCR: 专用 OCR 模型，与 vision 并行交叉校验（只在有 DashScope key 时启用）---
-    ocr_model = os.environ.get("OCR_MODEL", "qwen-vl-ocr-latest")
-    if dashscope_key and ocr_model:
+    # --- OCR: 专用 OCR 模型，与 vision 并行交叉校验 ---
+    mathpix_app_id = os.environ.get("MATHPIX_APP_ID", "").strip()
+    mathpix_app_key = os.environ.get("MATHPIX_APP_KEY", "").strip()
+    local_ocr = _build_local_ocr_from_env()
+
+    if bool(mathpix_app_id) != bool(mathpix_app_key):
+        _log.warning("incomplete Mathpix credentials; set both MATHPIX_APP_ID and MATHPIX_APP_KEY")
+
+    ocr_model = os.environ.get("OCR_MODEL", "").strip()
+    dashscope_ocr_model = ocr_model or "qwen-vl-ocr-latest"
+    if mathpix_app_id and mathpix_app_key:
+        mathpix_ocr = MathpixOCRClient(
+            app_id=mathpix_app_id,
+            app_key=mathpix_app_key,
+            base_url=os.environ.get("MATHPIX_BASE_URL", "https://api.mathpix.com"),
+            timeout=float(os.environ.get("MATHPIX_TIMEOUT_SECONDS", "15")),
+        )
+        registry[ModelRole.ocr] = (
+            FallbackOCRClient(mathpix_ocr, local_ocr)
+            if local_ocr is not None
+            else mathpix_ocr
+        )
+    elif dashscope_key and dashscope_ocr_model:
+        registry[ModelRole.ocr] = _build_client(
+            ModelRole.ocr,
+            dashscope_ocr_model,
+            api_key=dashscope_key, base_url=dashscope_url, provider="dashscope",
+        )
+    elif default_key and ocr_model:
         registry[ModelRole.ocr] = _build_client(
             ModelRole.ocr,
             ocr_model,
-            api_key=dashscope_key, base_url=dashscope_url, provider="dashscope",
+            api_key=default_key, base_url=default_url, provider=default_provider,
         )
+    elif local_ocr is not None:
+        registry[ModelRole.ocr] = local_ocr
 
     # --- REVIEW: 优先 DeepSeek，否则用默认 ---
     # 默认 deepseek-chat (V3, 5-10s)。以前默认 deepseek-reasoner (R1, 30-75s)

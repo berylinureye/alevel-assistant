@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AgentStepData } from '../../api/client'
+import { trackEvent, type AgentStepData } from '../../api/client'
 import { recommendPractice } from '../../api/practiceOrchestrator'
 import { submitAnswer } from '../../api/practice'
 import type { AnalyzeRequest, PageSummary, QuestionResult } from '../../types'
@@ -155,6 +155,7 @@ export function PracticeRecommendations({
   const submitRequestIdRef = useRef(0)
   const submittingRef = useRef(false)
   const activeQuestionIdRef = useRef<number | null>(null)
+  const answerStartedAtRef = useRef<number | null>(null)
   const lastLoadArgsRef = useRef<LoadArgs>({ forceConfirmed: false })
 
   const [response, setResponse] = useState<PracticeRecommendationResponse | null>(initialResponse ?? null)
@@ -182,6 +183,7 @@ export function PracticeRecommendations({
     loadingRef.current = false
     submittingRef.current = false
     activeQuestionIdRef.current = null
+    answerStartedAtRef.current = null
     lastLoadArgsRef.current = { forceConfirmed: false }
     setResponse(initialResponseRef.current ?? null)
     setLoading(false)
@@ -222,6 +224,14 @@ export function PracticeRecommendations({
       const next = await loader(body)
       if (requestIdRef.current !== requestId) return false
       setResponse(next)
+      trackEvent('ui_practice_recommendation_seen', {
+        run_key: runKey,
+        mode: next.recommendation_mode,
+        recommendation_count: next.recommendations.length,
+        detected_topic: next.detected_topic,
+        paper_num: next.paper_num,
+        match_confidence: next.match_confidence,
+      })
       const ids = recommendationQuestionIds(next)
       setRecommendedIds((prev) => Array.from(new Set([...prev, ...ids])))
       return true
@@ -235,7 +245,7 @@ export function PracticeRecommendations({
         setLoading(false)
       }
     }
-  }, [agentSteps, completedIds, confirmed, loader, questions, recommendedIds, request, summary])
+  }, [agentSteps, completedIds, confirmed, loader, questions, recommendedIds, request, runKey, summary])
 
   useEffect(() => {
     if (initialResponse || attemptedInitialLoad || !canLoad || response || loading) return
@@ -250,18 +260,50 @@ export function PracticeRecommendations({
 
   const handleConfirmAskFirst = useCallback(() => {
     if (loading) return
+    trackEvent('ui_practice_recommendation_confirmed', {
+      run_key: runKey,
+      mode: response?.recommendation_mode,
+      detected_topic: response?.detected_topic,
+      paper_num: response?.paper_num,
+      match_confidence: response?.match_confidence,
+    })
     setConfirmed(true)
     void load(true)
-  }, [load, loading])
+  }, [load, loading, response, runKey])
+
+  const handleDismissAskFirst = useCallback(() => {
+    if (!response || loading) return
+    trackEvent('ui_practice_recommendation_dismissed', {
+      run_key: runKey,
+      mode: response.recommendation_mode,
+      detected_topic: response.detected_topic,
+      paper_num: response.paper_num,
+      match_confidence: response.match_confidence,
+    })
+    setResponse({ ...response, recommendation_mode: 'none', message: '已保留本次批改反馈，暂不进入练习。' })
+  }, [loading, response, runKey])
 
   const handleStart = useCallback((item: PracticeRecommendation) => {
     if (!item.question || item.question_id == null || submittingRef.current) return
     submitRequestIdRef.current += 1
     activeQuestionIdRef.current = item.question_id
+    answerStartedAtRef.current = Date.now()
+    trackEvent('ui_practice_started', {
+      run_key: runKey,
+      recommendation_id: item.id,
+      question_id: item.question_id,
+      topic: item.topic,
+      subtopic: item.subtopic,
+      difficulty: item.difficulty,
+      source_label: item.source_label,
+      trigger: item.trigger,
+      requires_confirmation: item.requires_confirmation,
+      paper_num: item.paper_num,
+    })
     setSubmitError(null)
     setPracticeResult(null)
     setActiveRecommendation(item)
-  }, [])
+  }, [runKey])
 
   const handleSubmit = useCallback(async (answer: string, steps: string[]) => {
     const questionId = activeRecommendation?.question_id
@@ -269,6 +311,7 @@ export function PracticeRecommendations({
     const submitRequestId = submitRequestIdRef.current + 1
     submitRequestIdRef.current = submitRequestId
     submittingRef.current = true
+    const answerTimeMs = answerStartedAtRef.current ? Date.now() - answerStartedAtRef.current : 0
     setSubmitting(true)
     setSubmitError(null)
     try {
@@ -282,6 +325,26 @@ export function PracticeRecommendations({
         setSubmitError('提交结果与当前题目不匹配，请重新提交。')
         return
       }
+      trackEvent('ui_practice_answer_submitted', {
+        run_key: runKey,
+        question_id: questionId,
+        recommendation_id: activeRecommendation?.id,
+        topic: activeRecommendation?.topic,
+        subtopic: activeRecommendation?.subtopic,
+        difficulty: activeRecommendation?.difficulty,
+        score: result.grade_result.score,
+        full_score: result.grade_result.full_score,
+        is_correct: result.grade_result.is_correct,
+        error_type: result.grade_result.error_type,
+        answer_time_ms: answerTimeMs,
+      }, answerTimeMs)
+      trackEvent('ui_practice_result_viewed', {
+        run_key: runKey,
+        question_id: questionId,
+        score: result.grade_result.score,
+        full_score: result.grade_result.full_score,
+        is_correct: result.grade_result.is_correct,
+      })
       setPracticeResult(result)
       setCompletedIds((prev) => Array.from(new Set([...prev, questionId])))
     } catch (e) {
@@ -293,19 +356,29 @@ export function PracticeRecommendations({
         setSubmitting(false)
       }
     }
-  }, [activeRecommendation, answerSubmitter])
+  }, [activeRecommendation, answerSubmitter, runKey])
 
   const handleNextAdaptive = useCallback(() => {
     if (!practiceResult || loading) return
     const range = difficultyRangeFromPracticeResult(practiceResult)
+    trackEvent('ui_practice_next_adjusted', {
+      run_key: runKey,
+      question_id: practiceResult.question_id,
+      score: practiceResult.grade_result.score,
+      full_score: practiceResult.grade_result.full_score,
+      is_correct: practiceResult.grade_result.is_correct,
+      preferred_difficulty_min: range[0],
+      preferred_difficulty_max: range[1],
+    })
     void load(true, range).then((loaded) => {
       if (!loaded) return
       activeQuestionIdRef.current = null
+      answerStartedAtRef.current = null
       setActiveRecommendation(null)
       setSubmitError(null)
       setPracticeResult(null)
     })
-  }, [load, loading, practiceResult])
+  }, [load, loading, practiceResult, runKey])
 
   if (!summary || questions.length === 0) return null
 
@@ -368,7 +441,7 @@ export function PracticeRecommendations({
             </button>
             <button
               type="button"
-              onClick={() => setResponse({ ...response, recommendation_mode: 'none', message: '已保留本次批改反馈，暂不进入练习。' })}
+              onClick={handleDismissAskFirst}
               disabled={loading}
               className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >

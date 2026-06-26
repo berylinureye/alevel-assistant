@@ -1,0 +1,385 @@
+{
+  "status": "success",
+  "generated_at": "2026-06-25 15:37:23",
+  "input_dir": "/tmp/alevel-bench-jpeg",
+  "settings": {
+    "api_base": "http://127.0.0.1:8012",
+    "repeat": 1,
+    "max_concurrency": 1,
+    "tracked_events": true
+  },
+  "asset_summary": {
+    "count": 2,
+    "by_kind": {
+      "image": 2
+    },
+    "assets": [
+      {
+        "path": "/tmp/alevel-bench-jpeg/01-small.jpg",
+        "kind": "image",
+        "size_bytes": 138172
+      },
+      {
+        "path": "/tmp/alevel-bench-jpeg/02-phone.jpeg",
+        "kind": "image",
+        "size_bytes": 2141430
+      }
+    ]
+  },
+  "effectiveness": {
+    "overall_score": 91,
+    "overall_status": "pass",
+    "metrics": {
+      "upload_success_rate": {
+        "label": "上传成功率",
+        "value": 1.0,
+        "target": 0.95,
+        "status": "pass",
+        "sample_size": 2,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "parse_success_rate": {
+        "label": "可解析率",
+        "value": 1.0,
+        "target": 0.9,
+        "status": "pass",
+        "sample_size": 2,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "readable_question_rate": {
+        "label": "可读题目率",
+        "value": 1.0,
+        "target": 0.85,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "image_end_to_end_p95_ms": {
+        "label": "图片端到端 P95",
+        "value": 44217,
+        "target": 60000,
+        "status": "pass",
+        "sample_size": 2,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "pdf_end_to_end_p95_ms": {
+        "label": "PDF 端到端 P95",
+        "value": null,
+        "target": 90000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "first_question_p95_ms": {
+        "label": "首题返回 P95",
+        "value": 22108,
+        "target": 30000,
+        "status": "pass",
+        "sample_size": 2,
+        "unit": "ms",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "ten_image_batch_p95_ms": {
+        "label": "10 图一次上传 P95",
+        "value": null,
+        "target": 60000,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "ms",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "recognition_timeout_count": {
+        "label": "识别超时题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "unreadable_question_count": {
+        "label": "不可读题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "fast_batch_timeout_count": {
+        "label": "快批超时题数",
+        "value": 0,
+        "target": 0,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "count",
+        "weight": 0,
+        "hard_gate": true
+      },
+      "expected_question_recall_rate": {
+        "label": "标注题目召回率",
+        "value": 1.0,
+        "target": 0.95,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "expected_question_order_rate": {
+        "label": "标注题目顺序一致率",
+        "value": 1.0,
+        "target": 0.95,
+        "status": "pass",
+        "sample_size": 2,
+        "unit": "rate",
+        "weight": 3,
+        "hard_gate": false
+      },
+      "marked_correctness_match_rate": {
+        "label": "标注正确性一致率",
+        "value": 1.0,
+        "target": 0.9,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "marked_score_match_rate": {
+        "label": "标注精确分数一致率",
+        "value": 1.0,
+        "target": 0.85,
+        "status": "pass",
+        "sample_size": 4,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_relevance_rate": {
+        "label": "标注推荐相关性",
+        "value": 0.0,
+        "target": 0.9,
+        "status": "fail",
+        "sample_size": 2,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "recommendation_real_hit_rate": {
+        "label": "推荐真实题库命中率",
+        "value": null,
+        "target": 1.0,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "paper_compliance_rate": {
+        "label": "Paper 合规率",
+        "value": null,
+        "target": 1.0,
+        "status": "unlabeled",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 2,
+        "hard_gate": false
+      },
+      "repeat_question_count_stability": {
+        "label": "重复运行题目数稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      },
+      "repeat_recommendation_mode_stability": {
+        "label": "重复运行推荐模式稳定率",
+        "value": null,
+        "target": 0.9,
+        "status": "insufficient_data",
+        "sample_size": 0,
+        "unit": "rate",
+        "weight": 1,
+        "hard_gate": false
+      }
+    },
+    "failures": [
+      {
+        "metric": "recommendation_relevance_rate",
+        "label": "标注推荐相关性",
+        "value": 0.0,
+        "target": 0.9
+      }
+    ],
+    "summary": {
+      "records": 2,
+      "successful_records": 2,
+      "parsed_records": 2,
+      "asset_count": 2,
+      "question_error_counts": {
+        "correct": 4
+      }
+    }
+  },
+  "records": [
+    {
+      "asset_path": "/tmp/alevel-bench-jpeg/02-phone.jpeg",
+      "filename": "02-phone.jpeg",
+      "kind": "image",
+      "size_bytes": 2141430,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 44217,
+      "first_question_ms": 22108,
+      "question_count": 2,
+      "question_error_counts": {
+        "correct": 2
+      },
+      "questions": [
+        {
+          "question_number": "11(i)",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "mean",
+            "combined_mean",
+            "statistics"
+          ]
+        },
+        {
+          "question_number": "11(ii)",
+          "is_correct": true,
+          "score": 4.0,
+          "full_score": 4.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "standard_deviation",
+            "variance",
+            "combined_mean",
+            "combining_data"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 2,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 6.0,
+        "full_score_total": 6.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "combined_mean": 2,
+          "mean": 1,
+          "statistics": 1,
+          "standard_deviation": 1,
+          "variance": 1,
+          "combining_data": 1
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "全部 2 道题均答对，表现优秀。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 combined_mean。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "combined_mean",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260625_153614"
+    },
+    {
+      "asset_path": "/tmp/alevel-bench-jpeg/01-small.jpg",
+      "filename": "01-small.jpg",
+      "kind": "image",
+      "size_bytes": 138172,
+      "repeat_index": 1,
+      "status": "success",
+      "elapsed_ms": 19443,
+      "first_question_ms": 9721,
+      "question_count": 2,
+      "question_error_counts": {
+        "correct": 2
+      },
+      "questions": [
+        {
+          "question_number": "11a",
+          "is_correct": true,
+          "score": 5.0,
+          "full_score": 5.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "transformations"
+          ]
+        },
+        {
+          "question_number": "11b",
+          "is_correct": true,
+          "score": 2.0,
+          "full_score": 2.0,
+          "unanswered": false,
+          "needs_review": false,
+          "error_type": "correct",
+          "knowledge_tags": [
+            "algebraic_manipulation"
+          ]
+        }
+      ],
+      "summary": {
+        "total_questions": 2,
+        "correct_count": 2,
+        "incorrect_count": 0,
+        "unanswered_count": 0,
+        "review_count": 0,
+        "score_total": 7.0,
+        "full_score_total": 7.0,
+        "common_error_types": [],
+        "knowledge_tags_summary": {
+          "transformations": 1,
+          "algebraic_manipulation": 1
+        },
+        "estimated_review_minutes": 0,
+        "priority_topics": [],
+        "overall_teacher_comment": "全部 2 道题均答对，表现优秀。"
+      },
+      "recommendation": {
+        "mode": "ask_first",
+        "message": "我检测到这题像是 transformations。要不要再做 2-3 道类似题来确认这个点？",
+        "detected_topic": "transformations",
+        "paper_num": null,
+        "match_confidence": null,
+        "recommendations": []
+      },
+      "run_id": "20260625_153614"
+    }
+  ]
+}

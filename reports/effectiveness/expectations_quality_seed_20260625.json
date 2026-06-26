@@ -1,0 +1,50 @@
+{
+  "01-small.jpg": {
+    "expected_question_order": ["11a", "11b"],
+    "questions": {
+      "11a": { "is_correct": true, "score": 5 },
+      "11b": { "is_correct": true, "score": 2 }
+    },
+    "expected_recommendation_topic": "transformations"
+  },
+  "02-phone.jpeg": {
+    "expected_question_order": ["11(i)", "11(ii)"],
+    "questions": {
+      "11(i)": { "is_correct": true, "score": 2 },
+      "11(ii)": { "is_correct": true, "score": 4 }
+    },
+    "expected_recommendation_topic": "combined_mean"
+  },
+  "01-9709.pdf": {
+    "expected_question_order": [
+      "1(a)", "1(b)", "2", "3(a)", "3(b)", "4(a)", "4(b)", "5(a)", "5(b)",
+      "6(a)", "6(b)", "6(c)", "7(a)", "7(b)", "8(a)", "8(b)", "9(a)", "9(b)",
+      "10(a)", "10(b)", "10(c)", "10(d)"
+    ],
+    "questions": {
+      "1(a)": { "is_correct": false, "score": 0 },
+      "1(b)": { "is_correct": false, "score": 0 },
+      "2": { "is_correct": false, "score": 0 },
+      "3(a)": { "is_correct": false, "score": 0 },
+      "3(b)": { "is_correct": false, "score": 0 },
+      "4(a)": { "is_correct": false, "score": 0 },
+      "4(b)": { "is_correct": false, "score": 0 },
+      "5(a)": { "is_correct": false, "score": 0 },
+      "5(b)": { "is_correct": false, "score": 0 },
+      "6(a)": { "is_correct": false, "score": 0 },
+      "6(b)": { "is_correct": false, "score": 0 },
+      "6(c)": { "is_correct": false, "score": 0 },
+      "7(a)": { "is_correct": false, "score": 0 },
+      "7(b)": { "is_correct": false, "score": 0 },
+      "8(a)": { "is_correct": false, "score": 0 },
+      "8(b)": { "is_correct": false, "score": 0 },
+      "9(a)": { "is_correct": false, "score": 0 },
+      "9(b)": { "is_correct": false, "score": 0 },
+      "10(a)": { "is_correct": false, "score": 0 },
+      "10(b)": { "is_correct": false, "score": 0 },
+      "10(c)": { "is_correct": false, "score": 0 },
+      "10(d)": { "is_correct": false, "score": 0 }
+    },
+    "expected_paper_num": 1
+  }
+}

@@ -151,10 +151,10 @@ Detailed implementation plan: [Large PDF Mode Implementation Plan](./large-pdf-m
 Pass criteria:
 
 - Full PDF intake uses a dedicated Large PDF route/session instead of sending every page through `/analyze-homework-stream`.
-- Current non-Large-PDF upload limits remain unchanged: frontend `MAX_FILES = 16`, backend `MAX_PAGES_PER_REQUEST = 16`.
+- Current single-run upload budget is frontend `MAX_FILES = 24`, backend `MAX_PAGES_PER_REQUEST = 24`.
 - Page thumbnails are visible before grading starts.
-- User can select pages/questions before processing.
-- One Large PDF grading run processes at most 16 selected pages.
+- Large PDF mode auto-selects processable pages by default, while allowing the user to remove cover, blank, or irrelevant pages.
+- One Large PDF grading run processes at most 24 selected pages.
 - Paper recognition/manual paper code feeds the existing Past Paper resolver.
 - If paper matching is uncertain, the UI asks for confirmation or uses open AI grading with a visible reason.
 - Local PDF paths are never returned to the frontend or included in user-visible events.
@@ -164,7 +164,7 @@ Evidence:
 - Backend test or response sample for `/large-pdf/prepare`.
 - Screenshot showing page thumbnails and selected count.
 - Streaming evidence showing selected pages enter grading.
-- Regression evidence showing the normal image upload limit still rejects more than 16 files.
+- Regression evidence showing the normal image upload limit still rejects more than 24 files.
 
 ### Loading / Agent Trace State
 

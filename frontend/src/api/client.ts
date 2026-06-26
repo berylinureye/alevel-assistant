@@ -229,7 +229,7 @@ async function analyzeAllStreaming(
   userHint?: string,
   signal?: AbortSignal,
   uploadIds?: Array<string | null | undefined>,
-  routeContext?: Pick<AnalyzeRequest, 'upload_intent' | 'paper_code' | 'question_numbers'>,
+  routeContext?: Pick<AnalyzeRequest, 'upload_intent' | 'paper_code' | 'question_numbers' | 'fast_batch'>,
 ): Promise<void> {
   // IMPORTANT: all images go in a SINGLE request. Splitting per-image breaks
   // cross-page parent_stem inheritance — Q6(c) on page 2 can't find its Q6
@@ -255,6 +255,9 @@ async function analyzeAllStreaming(
   }
   if (routeContext?.question_numbers?.trim()) {
     form.append('question_numbers', routeContext.question_numbers.trim())
+  }
+  if (routeContext?.fast_batch) {
+    form.append('fast_batch', 'true')
   }
   const ids = (uploadIds ?? []).filter((v): v is string => typeof v === 'string' && v.length > 0)
   if (ids.length > 0) {
@@ -373,7 +376,7 @@ export async function analyzeHomeworkStreaming(
   callbacks: StreamCallbacks & { onImageStart?: (imageIndex: number, total: number) => void },
   options?: { signal?: AbortSignal },
 ): Promise<void> {
-  const { images, user_hint, upload_ids, upload_intent, paper_code, question_numbers } = req
+  const { images, user_hint, upload_ids, upload_intent, paper_code, question_numbers, fast_batch } = req
   const signal = options?.signal
   if (images.length === 0) {
     throw new Error('请至少选择一张图片')
@@ -438,6 +441,7 @@ export async function analyzeHomeworkStreaming(
     upload_intent,
     paper_code,
     question_numbers,
+    fast_batch,
   })
 }
 

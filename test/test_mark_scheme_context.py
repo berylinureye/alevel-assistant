@@ -92,6 +92,22 @@ def test_extract_question_mark_scheme_context_handles_real_pdf_numeric_formula_l
     assert "ff(x)" not in context.text
 
 
+def test_extract_question_mark_scheme_context_handles_table_style_real_pdf() -> None:
+    context = extract_question_mark_scheme_context(
+        ROOT / "data/papers/9709/2022/9709_s22_ms_41.pdf",
+        "1",
+        paper_label="CIE 9709/41 May/Jun 2022",
+    )
+
+    assert context.confidence == "high"
+    assert "question 1" in context.text
+    assert "1(a)" in context.text
+    assert "M1" in context.text
+    assert "A1" in context.text
+    assert "t = 16s" in context.text
+    assert "Question 2" not in context.text
+
+
 def test_grade_question_includes_mark_scheme_context_in_prompt() -> None:
     client = CaptureClient()
     question = QuestionData(

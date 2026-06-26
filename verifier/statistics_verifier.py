@@ -307,7 +307,78 @@ def _extract(
         return data
     except Exception as e:
         _log.warning("statistics extractor failed: %s", e)
+        return _local_extract(question_text, parent_stem)
+
+
+def _num_pattern() -> str:
+    return r"([0-9]+(?:\.[0-9]+)?)"
+
+
+def _clean_number(value: str) -> float:
+    return float(value.replace(" ", "").replace(",", ""))
+
+
+def _local_extract(question_text: str, parent_stem: str | None) -> dict | None:
+    """Deterministic fallback for common combined-summary statistics prompts.
+
+    This is deliberately narrow. It only handles the A-Level pattern where one
+    group is given by n/mean/sd and the other by n/sum/sum-of-squares.
+    """
+    text = f"{parent_stem or ''}\n{question_text or ''}"
+    compact = re.sub(r"\s+", " ", text)
+    normalized = compact.lower()
+    normalized = normalized.replace("∑", "sum ").replace("Σ", "sum ")
+    normalized = normalized.replace("²", "^2")
+    number = _num_pattern()
+
+    group_mean_sd = re.search(
+        rf"(?:sample of|sample|n\s*=?)\s*{number}[^.]*?"
+        rf"mean(?: age)?(?: is| =)?\s*{number}[^.]*?"
+        rf"standard deviation(?: is| =)?\s*{number}",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    group_sums_n = re.search(
+        rf"(?:sample of|sample|n\s*=?)\s*{number}[^.]*?sum",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    sum_x = re.search(r"sum\s*[a-z]?\s*=\s*([0-9][0-9,\s]*(?:\.[0-9]+)?)", normalized)
+    sum_x_sq = re.search(r"sum\s*[a-z]?\^2\s*=\s*([0-9][0-9,\s]*(?:\.[0-9]+)?)", normalized)
+    if not group_mean_sd or not group_sums_n or not sum_x or not sum_x_sq:
         return None
+
+    q_lower = (question_text or "").lower()
+    if "standard deviation" in q_lower or "sd" in q_lower:
+        target = "standard_deviation"
+    elif "variance" in q_lower:
+        target = "variance"
+    elif "mean" in q_lower:
+        target = "mean"
+    else:
+        return None
+
+    data = {
+        "pattern": "combined_summary",
+        "target": target,
+        "group_a": {
+            "n": int(float(group_mean_sd.group(1))),
+            "mean": _clean_number(group_mean_sd.group(2)),
+            "sd": _clean_number(group_mean_sd.group(3)),
+            "sum_x": None,
+            "sum_x_sq": None,
+        },
+        "group_b": {
+            "n": int(float(group_sums_n.group(1))),
+            "mean": None,
+            "sd": None,
+            "sum_x": _clean_number(sum_x.group(1)),
+            "sum_x_sq": _clean_number(sum_x_sq.group(1)),
+        },
+        "_source": "local_fallback",
+    }
+    _log.info("statistics local fallback extracted: %s", json.dumps(data, ensure_ascii=False))
+    return data
 
 
 def verify_statistics(
@@ -332,6 +403,8 @@ def verify_statistics(
     acceptable: list[float] = []
     primary: str | None = None
     detail_parts: list[str] = [f"pattern={pattern} target={target}"]
+    if data.get("_source"):
+        detail_parts.append(str(data.get("_source")))
 
     try:
         if pattern == "combined_summary":
