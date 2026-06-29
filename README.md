@@ -20,19 +20,71 @@ A-Level Assistant 是一个面向 Cambridge A-Level Mathematics 的 AI 学习诊
 - Practice Orchestrator 支持自动推荐、询问式推荐、内联答题和再次评分。
 - 埋点与 benchmark 围绕「上传 -> 识别 -> 匹配 -> 批改 -> 校验 -> 讲解 -> 练习 -> 反馈」全链路组织。
 
-## 核心架构
+## 核心设计链路 / Core Design Flow
 
-首页只放主流程，方便产品汇报时快速讲清楚：A-Level Assistant 不是「拍照给答案」，而是把一次上传变成一次可继续练习的学习闭环。
+首页只放产品主线，方便公开演示或技术讲解时快速讲清楚：A-Level Assistant 不是「拍照给答案」，而是把一次上传变成一次可信、可继续练习、可复盘优化的学习闭环。
 
 ```mermaid
 flowchart LR
-  A["上传"] --> B["识别"]
-  B --> C["批改"]
-  C --> D["校验"]
-  D --> E["讲解"]
-  E --> F["练习"]
-  F --> G["反馈"]
+  Student([学生<br/>Student]) --> Upload["上传作业图片 / PDF<br/>Upload homework images or PDF"]
+
+  subgraph Intake["1. 输入与预处理 / Intake"]
+    Upload --> Normalize["图片/PDF 规范化<br/>Image and PDF normalization"]
+    Normalize --> Cache["选页、hash cache、请求去重<br/>Page selection, hash cache, dedupe"]
+  end
+
+  subgraph Understanding["2. 题目理解 / Question Understanding"]
+    Cache --> Segment["OCR + Vision 切题<br/>OCR and vision segmentation"]
+    Segment --> Work["保留学生原始步骤<br/>Preserve student working"]
+    Work --> Match{"高置信匹配真题与评分标准？<br/>Reliable past paper and mark scheme match?"}
+  end
+
+  subgraph Grading["3. 批改引擎 / Grading Engine"]
+    Match -->|"命中 / Matched"| Grounded["真题对齐批改<br/>Mark-scheme grounded grading"]
+    Match -->|"未命中 / Not matched"| OpenGrade["开放题批改<br/>Open-ended AI grading"]
+    Grounded --> Verify["确定性校验<br/>Deterministic verification"]
+    OpenGrade --> Verify
+    Verify --> Review["置信度与复核标记<br/>Confidence and needs_review"]
+  end
+
+  subgraph ResultLoop["4. 结果与练习闭环 / Result and Practice Loop"]
+    Review --> Report["分数、错因、薄弱点<br/>Score, error reasons, weak topics"]
+    Report --> StudentView([可行动反馈<br/>Actionable feedback])
+    Report --> Recommend{"下一题是否可靠？<br/>Is the next practice reliable?"}
+    Recommend -->|"是 / Yes"| Auto["推荐真实题库题<br/>Recommend real paper practice"]
+    Recommend -->|"需要更多信息 / Need context"| Ask["先询问学生<br/>Ask a clarifying question"]
+    Recommend -->|"否 / No"| Boundary["说明题库或能力边界<br/>Explain coverage limit"]
+    Auto --> Inline["内联作答<br/>Inline attempt"]
+    Ask --> Inline
+    Inline --> Regrade["再次评分<br/>Re-grade the attempt"]
+    Regrade --> Report
+  end
+
+  subgraph Improve["5. 质量改进 / Quality Loop"]
+    Review --> Metrics["SSE events + benchmark<br/>Latency, accuracy, review rate"]
+    Boundary --> Metrics
+    Metrics --> Tune["优化题库、模型路由、校验规则<br/>Improve bank, routing, verification"]
+    Tune --> Match
+  end
+
+  classDef learner fill:#ecfeff,stroke:#0891b2,color:#0f172a
+  classDef processing fill:#eef2ff,stroke:#4f46e5,color:#0f172a
+  classDef trust fill:#fef3c7,stroke:#d97706,color:#0f172a
+  classDef practice fill:#ecfdf5,stroke:#059669,color:#0f172a
+  classDef boundary fill:#fff1f2,stroke:#e11d48,color:#0f172a
+
+  class Student,Upload,StudentView learner
+  class Normalize,Cache,Segment,Work,Grounded,OpenGrade processing
+  class Match,Verify,Review,Report trust
+  class Recommend,Auto,Ask,Inline,Regrade practice
+  class Boundary,Metrics,Tune boundary
 ```
+
+这张图对应三个可以展开的产品判断：
+
+- **先对齐真实阅卷标准**：能匹配 Past Paper 时优先使用 Mark Scheme，而不是只让模型自由发挥。
+- **把 AI 风险产品化**：OCR、LLM、规则校验和多模型复核互相制衡；不确定时显示 `needs_review`，不伪装确定。
+- **把批改变成闭环**：结果页不仅展示分数，还沉淀薄弱点、推荐真实练习，并支持再次作答和评分。
 
 主流程背后的设计取舍：
 
