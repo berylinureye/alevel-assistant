@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A-Level Assistant Project Flow</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #cbd5e1;
+      --panel: #ffffff;
+      --bg: #f8fafc;
+      --accent: #2563eb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .toolbar {
+      position: fixed;
+      z-index: 5;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 64px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgb(255 255 255 / 92%);
+      backdrop-filter: blur(12px);
+    }
+
+    .title {
+      display: flex;
+      min-width: 260px;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .title strong {
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    .title span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .sample-line {
+      width: 28px;
+      border-top: 3px solid #334155;
+    }
+
+    .sample-line.dashed {
+      border-top-style: dashed;
+      border-top-color: #dc2626;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    button {
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 650;
+      min-height: 36px;
+      padding: 0 12px;
+    }
+
+    button:hover {
+      background: #dbeafe;
+    }
+
+    #viewport {
+      position: fixed;
+      inset: 64px 0 0;
+      overflow: hidden;
+      cursor: grab;
+      background:
+        linear-gradient(90deg, rgb(148 163 184 / 12%) 1px, transparent 1px),
+        linear-gradient(rgb(148 163 184 / 12%) 1px, transparent 1px),
+        var(--bg);
+      background-size: 32px 32px;
+    }
+
+    #viewport.dragging {
+      cursor: grabbing;
+    }
+
+    #diagramCanvas {
+      width: max-content;
+      transform-origin: 0 0;
+      will-change: transform;
+      padding: 24px;
+    }
+
+    .mermaid {
+      width: max-content;
+      min-width: 5200px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      box-shadow: 0 24px 80px rgb(15 23 42 / 12%);
+    }
+
+    .mermaid svg {
+      display: block;
+      width: 5200px !important;
+      max-width: none !important;
+      height: auto !important;
+    }
+
+    .notes {
+      position: fixed;
+      z-index: 4;
+      right: 18px;
+      bottom: 18px;
+      width: min(520px, calc(100vw - 36px));
+      border: 1px solid #bae6fd;
+      border-radius: 14px;
+      background: rgb(240 249 255 / 94%);
+      box-shadow: 0 18px 60px rgb(15 23 42 / 14%);
+      color: #0f172a;
+      padding: 14px 16px;
+    }
+
+    .notes.hidden {
+      display: none;
+    }
+
+    .notes h2 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    .notes p {
+      margin: 0 0 8px;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .notes p:last-child {
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 900px) {
+      .toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      #viewport {
+        top: 142px;
+      }
+
+      .legend {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="title">
+      <strong>A-Level Assistant Flow</strong>
+      <span>Full-screen, zoomable project diagram</span>
+    </div>
+    <div class="legend" aria-label="Diagram legend">
+      <span class="legend-item"><span class="sample-line"></span>当次主链路 / Sync path</span>
+      <span class="legend-item"><span class="sample-line dashed"></span>异步质量闭环 / Async quality loop</span>
+    </div>
+    <div class="actions">
+      <button type="button" id="startButton">Start View</button>
+      <button type="button" id="fitButton">Fit</button>
+      <button type="button" id="zoomInButton">Zoom In</button>
+      <button type="button" id="zoomOutButton">Zoom Out</button>
+      <button type="button" id="notesButton">Hide Notes</button>
+      <button type="button" id="fullScreenButton">Full Screen</button>
+    </div>
+  </header>
+
+  <main id="viewport" aria-label="Zoomable project flow diagram">
+    <div id="diagramCanvas">
+      <pre class="mermaid">
+flowchart LR
+  Student([学生&lt;br/&gt;Student]) --&gt; Upload["上传作业图片 / PDF&lt;br/&gt;Upload homework images or PDF"]
+
+  subgraph Intake["1. 输入与预处理 / Intake"]
+    Upload --&gt; Normalize["图片/PDF 规范化&lt;br/&gt;Image and PDF normalization"]
+    Normalize --&gt; Cache["选页、hash cache、请求去重&lt;br/&gt;Page selection, hash cache, dedupe"]
+  end
+
+  subgraph Understanding["2. 题目理解 / Question Understanding"]
+    Cache --&gt; Segment["OCR + Vision 切题&lt;br/&gt;OCR and vision segmentation"]
+    Segment --&gt; Work["保留学生原始步骤&lt;br/&gt;Preserve student working"]
+    Work --&gt; Match{"高置信匹配真题与评分标准？&lt;br/&gt;Reliable past paper and mark scheme match?"}
+  end
+
+  subgraph Grading["3. 批改引擎 / Grading Engine"]
+    Match --&gt;|"命中 / Matched"| Grounded["真题对齐批改&lt;br/&gt;Mark-scheme grounded grading"]
+    Match --&gt;|"未命中 / Not matched"| OpenGrade["开放题批改&lt;br/&gt;Open-ended AI grading"]
+    Grounded --&gt; Verify["确定性校验&lt;br/&gt;Deterministic verification"]
+    OpenGrade --&gt; Verify
+    Verify --&gt; Review["置信度与复核标记&lt;br/&gt;Confidence and needs_review"]
+  end
+
+  subgraph ResultLoop["4. 结果与练习闭环 / Result and Practice Loop"]
+    Review --&gt;|"实时返回 / Sync response"| Report["分数、错因、薄弱点&lt;br/&gt;Score, error reasons, weak topics"]
+    Report --&gt; StudentView([可行动反馈&lt;br/&gt;Actionable feedback])
+    Report --&gt; Recommend{"下一题是否可靠？&lt;br/&gt;Is the next practice reliable?"}
+    Recommend --&gt;|"是 / Yes"| Auto["推荐真实题库题&lt;br/&gt;Recommend real paper practice"]
+    Recommend --&gt;|"需要更多信息 / Need context"| Ask["先询问学生&lt;br/&gt;Ask a clarifying question"]
+    Recommend --&gt;|"否 / No"| Boundary["说明题库或能力边界&lt;br/&gt;Explain coverage limit"]
+    Auto --&gt; Inline["内联作答&lt;br/&gt;Inline attempt"]
+    Ask --&gt; Inline
+    Inline --&gt; Regrade["再次评分&lt;br/&gt;Re-grade the attempt"]
+    Regrade --&gt; Report
+  end
+
+  subgraph Improve["5. 质量改进 / Quality Loop"]
+    Review -.-&gt;|"异步记录 / Async telemetry"| Metrics["SSE events + benchmark&lt;br/&gt;Latency, accuracy, review rate"]
+    Boundary -.-&gt;|"覆盖边界 / Coverage signal"| Metrics
+    Metrics -.-&gt; Tune["优化题库、模型路由、校验规则&lt;br/&gt;Improve bank, routing, verification"]
+    Tune -.-&gt;|"改进后续运行 / Improve future runs"| Match
+  end
+
+  classDef learner fill:#ecfeff,stroke:#0891b2,color:#0f172a
+  classDef processing fill:#eef2ff,stroke:#4f46e5,color:#0f172a
+  classDef trust fill:#fef3c7,stroke:#d97706,color:#0f172a
+  classDef practice fill:#ecfdf5,stroke:#059669,color:#0f172a
+  classDef boundary fill:#fff1f2,stroke:#e11d48,color:#0f172a
+
+  class Student,Upload,StudentView learner
+  class Normalize,Cache,Segment,Work,Grounded,OpenGrade processing
+  class Match,Verify,Review,Report trust
+  class Recommend,Auto,Ask,Inline,Regrade practice
+  class Boundary,Metrics,Tune boundary
+      </pre>
+    </div>
+  </main>
+
+  <aside class="notes" id="notes">
+    <h2>讲解重点 / Speaker Notes</h2>
+    <p>实线是学生当次会等待的主流程：上传、识别、匹配、批改、校验、返回结果、继续练习。</p>
+    <p>置信度节点不是第二次批改，而是把批改结果分成“可直接展示”“需要复核提示”“不要硬猜”几种表达方式。</p>
+    <p>虚线是异步质量闭环：记录延迟、准确率、复核率和覆盖边界，用来优化后续版本，不阻塞当次结果。</p>
+  </aside>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      theme: "base",
+      flowchart: {
+        htmlLabels: true,
+        curve: "basis",
+        nodeSpacing: 54,
+        rankSpacing: 92
+      },
+      themeVariables: {
+        fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        fontSize: "22px",
+        primaryTextColor: "#0f172a",
+        lineColor: "#334155",
+        clusterBkg: "#f8fafc",
+        clusterBorder: "#94a3b8",
+        edgeLabelBackground: "#ffffff",
+        tertiaryColor: "#ffffff"
+      }
+    });
+
+    await mermaid.run({ querySelector: ".mermaid" });
+
+    const viewport = document.getElementById("viewport");
+    const canvas = document.getElementById("diagramCanvas");
+    const notes = document.getElementById("notes");
+    const startButton = document.getElementById("startButton");
+    const fitButton = document.getElementById("fitButton");
+    const zoomInButton = document.getElementById("zoomInButton");
+    const zoomOutButton = document.getElementById("zoomOutButton");
+    const notesButton = document.getElementById("notesButton");
+    const fullScreenButton = document.getElementById("fullScreenButton");
+
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let dragStart = null;
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function applyTransform() {
+      canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+    }
+
+    function fitToScreen() {
+      canvas.style.transform = "none";
+      scale = 1;
+      offsetX = 0;
+      offsetY = 0;
+
+      const rect = canvas.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      const nextScale = Math.min(
+        (viewportRect.width - 48) / rect.width,
+        (viewportRect.height - 48) / rect.height,
+        1.1
+      );
+
+      scale = clamp(nextScale, 0.18, 2.4);
+      offsetX = Math.max(24, (viewportRect.width - rect.width * scale) / 2);
+      offsetY = Math.max(24, (viewportRect.height - rect.height * scale) / 2);
+      applyTransform();
+    }
+
+    function startPresentationView() {
+      canvas.style.transform = "none";
+      const rect = canvas.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      scale = clamp(viewportRect.width / 2600, 0.42, 0.82);
+      offsetX = 24;
+      offsetY = clamp((viewportRect.height - rect.height * scale) / 2 - 280, -260, 24);
+      applyTransform();
+    }
+
+    function zoomAt(multiplier, clientX, clientY) {
+      const viewportRect = viewport.getBoundingClientRect();
+      const anchorX = clientX - viewportRect.left;
+      const anchorY = clientY - viewportRect.top;
+      const beforeX = (anchorX - offsetX) / scale;
+      const beforeY = (anchorY - offsetY) / scale;
+      scale = clamp(scale * multiplier, 0.18, 3.4);
+      offsetX = anchorX - beforeX * scale;
+      offsetY = anchorY - beforeY * scale;
+      applyTransform();
+    }
+
+    viewport.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      zoomAt(event.deltaY < 0 ? 1.1 : 0.9, event.clientX, event.clientY);
+    }, { passive: false });
+
+    viewport.addEventListener("pointerdown", (event) => {
+      viewport.setPointerCapture(event.pointerId);
+      viewport.classList.add("dragging");
+      dragStart = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        offsetX,
+        offsetY
+      };
+    });
+
+    viewport.addEventListener("pointermove", (event) => {
+      if (!dragStart || dragStart.pointerId !== event.pointerId) {
+        return;
+      }
+
+      offsetX = dragStart.offsetX + event.clientX - dragStart.x;
+      offsetY = dragStart.offsetY + event.clientY - dragStart.y;
+      applyTransform();
+    });
+
+    viewport.addEventListener("pointerup", (event) => {
+      if (dragStart?.pointerId === event.pointerId) {
+        dragStart = null;
+        viewport.classList.remove("dragging");
+      }
+    });
+
+    startButton.addEventListener("click", startPresentationView);
+    fitButton.addEventListener("click", fitToScreen);
+    zoomInButton.addEventListener("click", () => {
+      const rect = viewport.getBoundingClientRect();
+      zoomAt(1.18, rect.left + rect.width / 2, rect.top + rect.height / 2);
+    });
+    zoomOutButton.addEventListener("click", () => {
+      const rect = viewport.getBoundingClientRect();
+      zoomAt(0.84, rect.left + rect.width / 2, rect.top + rect.height / 2);
+    });
+    notesButton.addEventListener("click", () => {
+      notes.classList.toggle("hidden");
+      notesButton.textContent = notes.classList.contains("hidden") ? "Show Notes" : "Hide Notes";
+    });
+    fullScreenButton.addEventListener("click", async () => {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    });
+
+    window.addEventListener("resize", startPresentationView);
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "0") {
+        fitToScreen();
+      } else if (event.key === "+" || event.key === "=") {
+        const rect = viewport.getBoundingClientRect();
+        zoomAt(1.18, rect.left + rect.width / 2, rect.top + rect.height / 2);
+      } else if (event.key === "-") {
+        const rect = viewport.getBoundingClientRect();
+        zoomAt(0.84, rect.left + rect.width / 2, rect.top + rect.height / 2);
+      } else if (event.key.toLowerCase() === "n") {
+        notesButton.click();
+      } else if (event.key.toLowerCase() === "f") {
+        fullScreenButton.click();
+      }
+    });
+
+    startPresentationView();
+  </script>
+</body>
+</html>

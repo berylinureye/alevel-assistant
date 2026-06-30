@@ -24,6 +24,11 @@ A-Level Assistant 是一个面向 Cambridge A-Level Mathematics 的 AI 学习诊
 
 首页只放产品主线，方便公开演示或技术讲解时快速讲清楚：A-Level Assistant 不是「拍照给答案」，而是把一次上传变成一次可信、可继续练习、可复盘优化的学习闭环。
 
+可全屏缩放版本：
+
+- [打开 Presentation View](https://htmlpreview.github.io/?https://github.com/berylinureye/alevel-assistant/blob/main/docs/project-flow.html)
+- 本地打开：`docs/project-flow.html`
+
 ```mermaid
 flowchart LR
   Student([学生<br/>Student]) --> Upload["上传作业图片 / PDF<br/>Upload homework images or PDF"]
@@ -48,7 +53,7 @@ flowchart LR
   end
 
   subgraph ResultLoop["4. 结果与练习闭环 / Result and Practice Loop"]
-    Review --> Report["分数、错因、薄弱点<br/>Score, error reasons, weak topics"]
+    Review -->|"实时返回 / Sync response"| Report["分数、错因、薄弱点<br/>Score, error reasons, weak topics"]
     Report --> StudentView([可行动反馈<br/>Actionable feedback])
     Report --> Recommend{"下一题是否可靠？<br/>Is the next practice reliable?"}
     Recommend -->|"是 / Yes"| Auto["推荐真实题库题<br/>Recommend real paper practice"]
@@ -61,10 +66,10 @@ flowchart LR
   end
 
   subgraph Improve["5. 质量改进 / Quality Loop"]
-    Review --> Metrics["SSE events + benchmark<br/>Latency, accuracy, review rate"]
-    Boundary --> Metrics
-    Metrics --> Tune["优化题库、模型路由、校验规则<br/>Improve bank, routing, verification"]
-    Tune --> Match
+    Review -.->|"异步记录 / Async telemetry"| Metrics["SSE events + benchmark<br/>Latency, accuracy, review rate"]
+    Boundary -.->|"覆盖边界 / Coverage signal"| Metrics
+    Metrics -.-> Tune["优化题库、模型路由、校验规则<br/>Improve bank, routing, verification"]
+    Tune -.->|"改进后续运行 / Improve future runs"| Match
   end
 
   classDef learner fill:#ecfeff,stroke:#0891b2,color:#0f172a
@@ -79,6 +84,15 @@ flowchart LR
   class Recommend,Auto,Ask,Inline,Regrade practice
   class Boundary,Metrics,Tune boundary
 ```
+
+### 怎么读这张图 / How to Read It
+
+这张图里有两种线：**实线是学生当次上传会经历的主链路**，**虚线是系统异步记录和后续优化的质量闭环**。
+
+- **主链路 / User-facing path**：上传后，系统先做预处理、OCR/Vision 切题、真题与 Mark Scheme 匹配，再进入批改和校验，最后把分数、错因、薄弱点和下一步练习返回给学生。
+- **置信度节点 / Confidence gate**：`Confidence and needs_review` 不是另一次批改，而是批改后的一道可信度闸门。它决定这道题能不能放心展示、是否要标 `needs_review`、以及结果页应该如何表达风险。
+- **质量闭环 / Quality loop**：从置信度节点到 `SSE events + benchmark` 的虚线表示异步埋点。系统会记录速度、准确率、复核率、题库覆盖和推荐转化，用来改进后续版本的题库、模型路由和校验规则；它不阻塞学生当次看到批改结果。
+- **练习闭环 / Practice loop**：如果系统能可靠找到下一题，就推荐真实题库题并支持内联作答、再次评分；如果信息不足，会先询问；如果题库覆盖不到，会明确说明边界，不硬猜。
 
 这张图对应三个可以展开的产品判断：
 
