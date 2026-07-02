@@ -21,14 +21,15 @@
 
     body {
       margin: 0;
-      overflow: hidden;
+      min-height: 100vh;
+      overflow-x: hidden;
       background: var(--bg);
       color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
     .toolbar {
-      position: fixed;
+      position: sticky;
       z-index: 5;
       top: 0;
       left: 0;
@@ -112,10 +113,9 @@
     }
 
     #viewport {
-      position: fixed;
-      inset: 64px 0 0;
-      overflow: hidden;
-      cursor: grab;
+      min-height: calc(100vh - 64px);
+      overflow: visible;
+      padding: 24px 18px 18px;
       background:
         linear-gradient(90deg, rgb(148 163 184 / 12%) 1px, transparent 1px),
         linear-gradient(rgb(148 163 184 / 12%) 1px, transparent 1px),
@@ -123,44 +123,34 @@
       background-size: 32px 32px;
     }
 
-    #viewport.dragging {
-      cursor: grabbing;
-    }
-
     #diagramCanvas {
-      width: max-content;
-      transform-origin: 0 0;
-      will-change: transform;
-      padding: 24px;
+      width: min(1120px, calc(100vw - 36px));
+      margin: 0 auto;
     }
 
     .mermaid {
-      width: max-content;
-      min-width: 5200px;
-      padding: 28px;
+      width: 100%;
+      padding: 24px;
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 8px;
       background: white;
-      box-shadow: 0 24px 80px rgb(15 23 42 / 12%);
+      box-shadow: 0 18px 48px rgb(15 23 42 / 10%);
     }
 
     .mermaid svg {
       display: block;
-      width: 5200px !important;
-      max-width: none !important;
+      width: 100% !important;
+      max-width: 100% !important;
       height: auto !important;
     }
 
     .notes {
-      position: fixed;
-      z-index: 4;
-      right: 18px;
-      bottom: 18px;
-      width: min(520px, calc(100vw - 36px));
+      width: min(1120px, calc(100vw - 36px));
+      margin: 0 auto 32px;
       border: 1px solid #bae6fd;
-      border-radius: 14px;
+      border-radius: 8px;
       background: rgb(240 249 255 / 94%);
-      box-shadow: 0 18px 60px rgb(15 23 42 / 14%);
+      box-shadow: 0 12px 36px rgb(15 23 42 / 10%);
       color: #0f172a;
       padding: 14px 16px;
     }
@@ -192,10 +182,6 @@
         flex-direction: column;
       }
 
-      #viewport {
-        top: 142px;
-      }
-
       .legend {
         justify-content: flex-start;
       }
@@ -206,66 +192,49 @@
   <header class="toolbar">
     <div class="title">
       <strong>A-Level Assistant Flow</strong>
-      <span>Full-screen, zoomable project diagram</span>
+      <span>Top-down project diagram</span>
     </div>
     <div class="legend" aria-label="Diagram legend">
       <span class="legend-item"><span class="sample-line"></span>当次主链路 / Sync path</span>
       <span class="legend-item"><span class="sample-line dashed"></span>异步质量闭环 / Async quality loop</span>
     </div>
     <div class="actions">
-      <button type="button" id="startButton">Start View</button>
-      <button type="button" id="fitButton">Fit</button>
-      <button type="button" id="zoomInButton">Zoom In</button>
-      <button type="button" id="zoomOutButton">Zoom Out</button>
+      <button type="button" id="topButton">Top</button>
       <button type="button" id="notesButton">Hide Notes</button>
       <button type="button" id="fullScreenButton">Full Screen</button>
     </div>
   </header>
 
-  <main id="viewport" aria-label="Zoomable project flow diagram">
+  <main id="viewport" aria-label="Top-down project flow diagram">
     <div id="diagramCanvas">
       <pre class="mermaid">
-flowchart LR
-  Student([学生&lt;br/&gt;Student]) --&gt; Upload["上传作业图片 / PDF&lt;br/&gt;Upload homework images or PDF"]
+flowchart TD
+  Student([学生&lt;br/&gt;Student])
+  Intake["1. 输入与预处理 / Intake&lt;br/&gt;上传图片/PDF → 规范化 → 选页、hash cache、去重"]
+  Understand["2. 题目理解 / Question Understanding&lt;br/&gt;OCR + Vision 切题 → 保留学生步骤 → 匹配真题与评分标准"]
+  Match{"3. 批改路径 / Grading Path&lt;br/&gt;是否高置信命中 Mark Scheme？"}
+  Grounded["真题对齐批改&lt;br/&gt;Mark-scheme grounded grading"]
+  OpenGrade["开放题批改&lt;br/&gt;Open-ended AI grading"]
+  Verify["确定性校验 + 置信度标记&lt;br/&gt;Deterministic checks + needs_review"]
+  Feedback([4. 可行动反馈&lt;br/&gt;分数、错因、薄弱点])
+  Recommend{"下一题是否可靠？&lt;br/&gt;Is the next practice reliable?"}
+  Auto["推荐真实题库题&lt;br/&gt;Recommend real paper practice"]
+  Ask["先询问学生&lt;br/&gt;Ask a clarifying question"]
+  Boundary["说明题库或能力边界&lt;br/&gt;Explain coverage limit"]
+  Practice["内联作答 → 再次评分 → 更新反馈&lt;br/&gt;Inline attempt → re-grade → updated feedback"]
+  Quality["5. 异步质量闭环 / Quality Loop&lt;br/&gt;SSE events + benchmark → 优化题库、模型路由、校验规则"]
+  Future["改进后续运行&lt;br/&gt;Improve future runs"]
 
-  subgraph Intake["1. 输入与预处理 / Intake"]
-    Upload --&gt; Normalize["图片/PDF 规范化&lt;br/&gt;Image and PDF normalization"]
-    Normalize --&gt; Cache["选页、hash cache、请求去重&lt;br/&gt;Page selection, hash cache, dedupe"]
-  end
-
-  subgraph Understanding["2. 题目理解 / Question Understanding"]
-    Cache --&gt; Segment["OCR + Vision 切题&lt;br/&gt;OCR and vision segmentation"]
-    Segment --&gt; Work["保留学生原始步骤&lt;br/&gt;Preserve student working"]
-    Work --&gt; Match{"高置信匹配真题与评分标准？&lt;br/&gt;Reliable past paper and mark scheme match?"}
-  end
-
-  subgraph Grading["3. 批改引擎 / Grading Engine"]
-    Match --&gt;|"命中 / Matched"| Grounded["真题对齐批改&lt;br/&gt;Mark-scheme grounded grading"]
-    Match --&gt;|"未命中 / Not matched"| OpenGrade["开放题批改&lt;br/&gt;Open-ended AI grading"]
-    Grounded --&gt; Verify["确定性校验&lt;br/&gt;Deterministic verification"]
-    OpenGrade --&gt; Verify
-    Verify --&gt; Review["置信度与复核标记&lt;br/&gt;Confidence and needs_review"]
-  end
-
-  subgraph ResultLoop["4. 结果与练习闭环 / Result and Practice Loop"]
-    Review --&gt;|"实时返回 / Sync response"| Report["分数、错因、薄弱点&lt;br/&gt;Score, error reasons, weak topics"]
-    Report --&gt; StudentView([可行动反馈&lt;br/&gt;Actionable feedback])
-    Report --&gt; Recommend{"下一题是否可靠？&lt;br/&gt;Is the next practice reliable?"}
-    Recommend --&gt;|"是 / Yes"| Auto["推荐真实题库题&lt;br/&gt;Recommend real paper practice"]
-    Recommend --&gt;|"需要更多信息 / Need context"| Ask["先询问学生&lt;br/&gt;Ask a clarifying question"]
-    Recommend --&gt;|"否 / No"| Boundary["说明题库或能力边界&lt;br/&gt;Explain coverage limit"]
-    Auto --&gt; Inline["内联作答&lt;br/&gt;Inline attempt"]
-    Ask --&gt; Inline
-    Inline --&gt; Regrade["再次评分&lt;br/&gt;Re-grade the attempt"]
-    Regrade --&gt; Report
-  end
-
-  subgraph Improve["5. 质量改进 / Quality Loop"]
-    Review -.-&gt;|"异步记录 / Async telemetry"| Metrics["SSE events + benchmark&lt;br/&gt;Latency, accuracy, review rate"]
-    Boundary -.-&gt;|"覆盖边界 / Coverage signal"| Metrics
-    Metrics -.-&gt; Tune["优化题库、模型路由、校验规则&lt;br/&gt;Improve bank, routing, verification"]
-    Tune -.-&gt;|"改进后续运行 / Improve future runs"| Match
-  end
+  Student --&gt; Intake --&gt; Understand --&gt; Match
+  Match --&gt;|"命中 / Matched"| Grounded --&gt; Verify
+  Match --&gt;|"未命中 / Not matched"| OpenGrade --&gt; Verify
+  Verify --&gt;|"实时返回 / Sync response"| Feedback --&gt; Recommend
+  Recommend --&gt;|"是 / Yes"| Auto --&gt; Practice
+  Recommend --&gt;|"需要更多信息 / Need context"| Ask --&gt; Practice
+  Recommend --&gt;|"否 / No"| Boundary
+  Practice -.-&gt;|"练习结果 / Practice signal"| Quality
+  Boundary -.-&gt;|"覆盖边界 / Coverage signal"| Quality
+  Quality -.-&gt; Future
 
   classDef learner fill:#ecfeff,stroke:#0891b2,color:#0f172a
   classDef processing fill:#eef2ff,stroke:#4f46e5,color:#0f172a
@@ -273,11 +242,11 @@ flowchart LR
   classDef practice fill:#ecfdf5,stroke:#059669,color:#0f172a
   classDef boundary fill:#fff1f2,stroke:#e11d48,color:#0f172a
 
-  class Student,Upload,StudentView learner
-  class Normalize,Cache,Segment,Work,Grounded,OpenGrade processing
-  class Match,Verify,Review,Report trust
-  class Recommend,Auto,Ask,Inline,Regrade practice
-  class Boundary,Metrics,Tune boundary
+  class Student,Feedback learner
+  class Intake,Understand,Grounded,OpenGrade processing
+  class Match,Verify trust
+  class Recommend,Auto,Ask,Practice practice
+  class Boundary,Quality,Future boundary
       </pre>
     </div>
   </main>
@@ -299,12 +268,12 @@ flowchart LR
       flowchart: {
         htmlLabels: true,
         curve: "basis",
-        nodeSpacing: 54,
-        rankSpacing: 92
+        nodeSpacing: 26,
+        rankSpacing: 42
       },
       themeVariables: {
         fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
-        fontSize: "22px",
+        fontSize: "16px",
         primaryTextColor: "#0f172a",
         lineColor: "#334155",
         clusterBkg: "#f8fafc",
@@ -316,115 +285,15 @@ flowchart LR
 
     await mermaid.run({ querySelector: ".mermaid" });
 
-    const viewport = document.getElementById("viewport");
-    const canvas = document.getElementById("diagramCanvas");
     const notes = document.getElementById("notes");
-    const startButton = document.getElementById("startButton");
-    const fitButton = document.getElementById("fitButton");
-    const zoomInButton = document.getElementById("zoomInButton");
-    const zoomOutButton = document.getElementById("zoomOutButton");
+    const topButton = document.getElementById("topButton");
     const notesButton = document.getElementById("notesButton");
     const fullScreenButton = document.getElementById("fullScreenButton");
 
-    let scale = 1;
-    let offsetX = 0;
-    let offsetY = 0;
-    let dragStart = null;
-
-    function clamp(value, min, max) {
-      return Math.min(Math.max(value, min), max);
-    }
-
-    function applyTransform() {
-      canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
-    }
-
-    function fitToScreen() {
-      canvas.style.transform = "none";
-      scale = 1;
-      offsetX = 0;
-      offsetY = 0;
-
-      const rect = canvas.getBoundingClientRect();
-      const viewportRect = viewport.getBoundingClientRect();
-      const nextScale = Math.min(
-        (viewportRect.width - 48) / rect.width,
-        (viewportRect.height - 48) / rect.height,
-        1.1
-      );
-
-      scale = clamp(nextScale, 0.18, 2.4);
-      offsetX = Math.max(24, (viewportRect.width - rect.width * scale) / 2);
-      offsetY = Math.max(24, (viewportRect.height - rect.height * scale) / 2);
-      applyTransform();
-    }
-
-    function startPresentationView() {
-      canvas.style.transform = "none";
-      const rect = canvas.getBoundingClientRect();
-      const viewportRect = viewport.getBoundingClientRect();
-      scale = clamp(viewportRect.width / 2600, 0.42, 0.82);
-      offsetX = 24;
-      offsetY = clamp((viewportRect.height - rect.height * scale) / 2 - 280, -260, 24);
-      applyTransform();
-    }
-
-    function zoomAt(multiplier, clientX, clientY) {
-      const viewportRect = viewport.getBoundingClientRect();
-      const anchorX = clientX - viewportRect.left;
-      const anchorY = clientY - viewportRect.top;
-      const beforeX = (anchorX - offsetX) / scale;
-      const beforeY = (anchorY - offsetY) / scale;
-      scale = clamp(scale * multiplier, 0.18, 3.4);
-      offsetX = anchorX - beforeX * scale;
-      offsetY = anchorY - beforeY * scale;
-      applyTransform();
-    }
-
-    viewport.addEventListener("wheel", (event) => {
-      event.preventDefault();
-      zoomAt(event.deltaY < 0 ? 1.1 : 0.9, event.clientX, event.clientY);
-    }, { passive: false });
-
-    viewport.addEventListener("pointerdown", (event) => {
-      viewport.setPointerCapture(event.pointerId);
-      viewport.classList.add("dragging");
-      dragStart = {
-        pointerId: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        offsetX,
-        offsetY
-      };
+    topButton.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    viewport.addEventListener("pointermove", (event) => {
-      if (!dragStart || dragStart.pointerId !== event.pointerId) {
-        return;
-      }
-
-      offsetX = dragStart.offsetX + event.clientX - dragStart.x;
-      offsetY = dragStart.offsetY + event.clientY - dragStart.y;
-      applyTransform();
-    });
-
-    viewport.addEventListener("pointerup", (event) => {
-      if (dragStart?.pointerId === event.pointerId) {
-        dragStart = null;
-        viewport.classList.remove("dragging");
-      }
-    });
-
-    startButton.addEventListener("click", startPresentationView);
-    fitButton.addEventListener("click", fitToScreen);
-    zoomInButton.addEventListener("click", () => {
-      const rect = viewport.getBoundingClientRect();
-      zoomAt(1.18, rect.left + rect.width / 2, rect.top + rect.height / 2);
-    });
-    zoomOutButton.addEventListener("click", () => {
-      const rect = viewport.getBoundingClientRect();
-      zoomAt(0.84, rect.left + rect.width / 2, rect.top + rect.height / 2);
-    });
     notesButton.addEventListener("click", () => {
       notes.classList.toggle("hidden");
       notesButton.textContent = notes.classList.contains("hidden") ? "Show Notes" : "Hide Notes";
@@ -437,24 +306,15 @@ flowchart LR
       }
     });
 
-    window.addEventListener("resize", startPresentationView);
     window.addEventListener("keydown", (event) => {
-      if (event.key === "0") {
-        fitToScreen();
-      } else if (event.key === "+" || event.key === "=") {
-        const rect = viewport.getBoundingClientRect();
-        zoomAt(1.18, rect.left + rect.width / 2, rect.top + rect.height / 2);
-      } else if (event.key === "-") {
-        const rect = viewport.getBoundingClientRect();
-        zoomAt(0.84, rect.left + rect.width / 2, rect.top + rect.height / 2);
+      if (event.key === "Home" || event.key === "0") {
+        topButton.click();
       } else if (event.key.toLowerCase() === "n") {
         notesButton.click();
       } else if (event.key.toLowerCase() === "f") {
         fullScreenButton.click();
       }
     });
-
-    startPresentationView();
   </script>
 </body>
 </html>
